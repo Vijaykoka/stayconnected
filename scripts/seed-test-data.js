@@ -14,7 +14,11 @@ const TEST_DATA_PUBLIC = path.join(PUBLIC_DIR, "test-data.json");
 const COUNT = Number(process.argv[2] || 20);
 
 const SAMPLE_NETWORKS = ["O2", "EE", "THREE"];
-const SAMPLE_TOPUPS = ["£10", "£15", "£20", "£25", "£30", "£50"];
+const NETWORK_TOPUPS = {
+  "O2": ["£10", "£15", "£20", "£30"],
+  "EE": ["£10", "£15", "£20", "£30", "£35"],
+  "THREE": ["£10", "£15", "£20", "£35"]
+};
 
 function randomDigits(length) {
   let value = "";
@@ -45,7 +49,8 @@ async function main() {
     if (usedIccids.has(candidate)) continue;
     usedIccids.add(candidate);
     const network = SAMPLE_NETWORKS[rows.length % SAMPLE_NETWORKS.length];
-    const topUpValue = SAMPLE_TOPUPS[rows.length % SAMPLE_TOPUPS.length];
+    const allowed = NETWORK_TOPUPS[network];
+    const topUpValue = allowed[rows.length % allowed.length];
     rows.push({
       ecommerce: "Amazon",
       orderId: amazonOrderId(),

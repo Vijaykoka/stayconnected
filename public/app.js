@@ -11,36 +11,79 @@ const urlParams = new URLSearchParams(window.location.search);
 
 const INVALID_ICCID_MSG = "Invalid ICCID. This SIM card is not registered in our database and does not belong to us.";
 
-// Load Networks and Top-Up Values
+const DEFAULT_NETWORK_TOPUPS = {
+  "O2": ["£10", "£15", "£20", "£30"],
+  "EE": ["£10", "£15", "£20", "£30", "£35"],
+  "THREE": ["£10", "£15", "£20", "£35"]
+};
+
+let currentNetworkTopUps = DEFAULT_NETWORK_TOPUPS;
+
+function updateTopUpOptions(network, presetValue) {
+  const values = currentNetworkTopUps[network] || [];
+  topUpValueSelect.innerHTML = "";
+
+  if (!network || values.length === 0) {
+    topUpValueSelect.innerHTML = '<option value="">-- Select network first --</option>';
+    topUpValueSelect.disabled = true;
+    return;
+  }
+
+  topUpValueSelect.disabled = false;
+  const defaultOpt = document.createElement("option");
+  defaultOpt.value = "";
+  defaultOpt.textContent = `-- Select ${network} Top-Up --`;
+  topUpValueSelect.appendChild(defaultOpt);
+
+  for (const val of values) {
+    const opt = document.createElement("option");
+    opt.value = val;
+    opt.textContent = val;
+    topUpValueSelect.appendChild(opt);
+  }
+
+  if (presetValue && values.includes(presetValue)) {
+    topUpValueSelect.value = presetValue;
+  }
+}
+
+networkSelect.addEventListener("change", () => {
+  updateTopUpOptions(networkSelect.value);
+});
+
+// Load Networks and Top-Up Values from config
 async function loadConfig() {
   try {
     const res = await fetch("/api/config");
     const data = await res.json();
     if (data.ok && data.config) {
-      // Networks
-      networkSelect.innerHTML = '<option value="">-- Select your SIM network --</option>';
-      for (const net of data.config.networks) {
-        const opt = document.createElement("option");
-        opt.value = net;
-        opt.textContent = net;
-        networkSelect.appendChild(opt);
+      if (data.config.networkTopUpValues) {
+        currentNetworkTopUps = data.config.networkTopUpValues;
       }
-      const initialNet = urlParams.get("network") || urlParams.get("networkName");
-      if (initialNet) networkSelect.value = initialNet;
 
-      // Top-Up Values
-      topUpValueSelect.innerHTML = '<option value="">-- Select top-up value --</option>';
-      for (const val of data.config.topUpValues) {
-        const opt = document.createElement("option");
-        opt.value = val;
-        opt.textContent = val;
-        topUpValueSelect.appendChild(opt);
+      if (Array.isArray(data.config.networks) && data.config.networks.length > 0) {
+        networkSelect.innerHTML = '<option value="">-- Select Network --</option>';
+        for (const net of data.config.networks) {
+          const opt = document.createElement("option");
+          opt.value = net;
+          opt.textContent = net;
+          networkSelect.appendChild(opt);
+        }
       }
+
+      const initialNet = urlParams.get("network") || urlParams.get("networkName");
       const initialVal = urlParams.get("topUpValue") || urlParams.get("value") || urlParams.get("plan");
-      if (initialVal) topUpValueSelect.value = initialVal;
+
+      if (initialNet) {
+        networkSelect.value = initialNet;
+        updateTopUpOptions(initialNet, initialVal);
+      } else {
+        updateTopUpOptions("");
+      }
     }
   } catch (err) {
     console.error("Config load error", err);
+    updateTopUpOptions("");
   }
 }
 
@@ -107,8 +150,9 @@ async function checkIccid() {
 
     iccidStatusBox.className = "iccid-status-pill success";
     iccidStatusBox.innerHTML = "✓ <strong>ICCID Verified:</strong> Valid SIM registered in our database.";
-    if (data.network && !networkSelect.value) {
+    if (data.network) {
       networkSelect.value = data.network;
+      updateTopUpOptions(data.network, data.lastTopUpValue);
     }
     return true;
   } catch {
@@ -226,6 +270,7 @@ btnSubmitAnother.addEventListener("click", () => {
   receiptCard.hidden = true;
   result.hidden = true;
   iccidStatusBox.hidden = true;
+  updateTopUpOptions("");
 });
 
 loadConfig();

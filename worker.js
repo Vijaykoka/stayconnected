@@ -7,7 +7,12 @@ const DEFAULT_CONFIG = {
     "EE",
     "THREE"
   ],
-  topUpValues: ["£5", "£10", "£15", "£20", "£25", "£30", "£40", "£50"],
+  networkTopUpValues: {
+    "O2": ["£10", "£15", "£20", "£30"],
+    "EE": ["£10", "£15", "£20", "£30", "£35"],
+    "THREE": ["£10", "£15", "£20", "£35"]
+  },
+  topUpValues: ["£10", "£15", "£20", "£30", "£35"],
   notificationEmail: "vendor-orders@example.com"
 };
 
