@@ -6,7 +6,8 @@
   "scripts": {
     "seed": "node scripts/seed-test-data.js",
     "start": "node server.js",
-    "test:local": "node scripts/local-api-test.js"
+    "test:local": "node scripts/local-api-test.js",
+    "test:email": "node scripts/test-email.js"
   },
   "keywords": [
     "esim",
