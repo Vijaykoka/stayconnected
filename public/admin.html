@@ -9,37 +9,29 @@
   <body>
     <header class="site-header">
       <a class="brand" href="/">
-        <span class="brand-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <path d="M17 2H7c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-3 18h-4v-1h4v1zm3-3H7V5h10v12z"/>
-          </svg>
-        </span>
+        <span class="brand-icon" aria-hidden="true">S</span>
         <span>Stayconnected</span>
       </a>
       <nav aria-label="Primary">
         <a href="/">Customer Portal</a>
-        <a href="/test-data.html">Test Data</a>
+        <a href="/test-data.html">Test data</a>
         <a href="/admin.html">Admin</a>
       </nav>
     </header>
 
     <div class="offer-strip">
-      <span class="dot">●</span>
-      <span><strong>SIM Verification &amp; Top-Up Request Management Dashboard</strong></span>
-      <span class="dot">●</span>
+      <span>✦</span>
+      <strong>SIM Verification &amp; Top-Up Request Management Dashboard</strong>
+      <span>✦</span>
     </div>
 
     <main class="shell admin-shell">
       <section class="activation-panel admin-panel" aria-labelledby="admin-title">
         <div class="brand-row" style="justify-content: space-between; flex-wrap: wrap;">
           <div style="display: flex; align-items: center; gap: 14px;">
-            <div class="brand-mark" aria-hidden="true">
-              <svg viewBox="0 0 24 24" style="width:24px;height:24px;fill:currentColor;">
-                <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
-              </svg>
-            </div>
+            <div class="brand-mark" aria-hidden="true">S</div>
             <div>
-              <p class="eyebrow">Vendor Administration</p>
+              <p class="eyebrow">Vendor Portal</p>
               <h1 id="admin-title">Top-Up Requests &amp; SIM Inventory</h1>
             </div>
           </div>
@@ -50,9 +42,9 @@
             </a>
             <a id="btn-export-inventory" href="/api/admin/export-csv" class="link-button secondary" download>
               <span class="button-icon" aria-hidden="true">↓</span>
-              <span>Export Inventory (CSV)</span>
+              <span>Export SIM Inventory (CSV)</span>
             </a>
-            <button type="button" id="btn-logout" class="link-button" style="background:#64748b;min-height:40px;">
+            <button type="button" id="btn-logout" class="link-button" style="background:#5a6b7c;min-height:42px;">
               <span>Logout</span>
             </button>
           </div>
@@ -62,14 +54,14 @@
         <div id="login-modal" class="login-modal-overlay">
           <div class="login-modal-card">
             <div class="brand-row" style="margin-bottom: 12px;">
-              <div class="brand-mark" style="background:var(--primary);">🔒</div>
+              <div class="brand-mark" style="background:#0d4f8b;">🔒</div>
               <div>
                 <p class="eyebrow">Vendor Security Check</p>
                 <h2 style="font-size:22px;">Admin Access Required</h2>
               </div>
             </div>
             <p class="section-desc" style="margin-bottom:16px;">
-              This dashboard is protected. Enter your Admin Password to view customer orders and manage SIM inventory.
+              This dashboard is protected. Please enter your Admin Password to view verified customer orders and manage your SIM inventory.
             </p>
             <form id="admin-login-form" novalidate>
               <label>
@@ -84,36 +76,11 @@
           </div>
         </div>
 
-        <!-- KPI Stats Cards -->
         <div class="stats" id="stats">
-          <div class="stat-card">
-            <div class="stat-info">
-              <span class="stat-label">Authorized SIMs</span>
-              <span class="stat-val">--</span>
-            </div>
-            <div class="stat-icon">📶</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-info">
-              <span class="stat-label">Available Stock</span>
-              <span class="stat-val">--</span>
-            </div>
-            <div class="stat-icon">✓</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-info">
-              <span class="stat-label">Verified Orders</span>
-              <span class="stat-val">--</span>
-            </div>
-            <div class="stat-icon">📦</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-info">
-              <span class="stat-label">Top-Up Requests</span>
-              <span class="stat-val">--</span>
-            </div>
-            <div class="stat-icon">⚡</div>
-          </div>
+          <span>Total Authorized SIMs: --</span>
+          <span>Available SIMs: --</span>
+          <span>Verified Orders: --</span>
+          <span>Incoming Requests: --</span>
         </div>
 
         <!-- Section 1: Customer Incoming Top-Up Requests -->
@@ -159,7 +126,7 @@
           </div>
 
           <form id="bulk-form" class="activation-form" novalidate>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px;">
               <label>
                 <span>Sales Channel</span>
                 <input id="ecommerce" name="ecommerce" value="Online Store" required>
@@ -216,7 +183,7 @@
               <h2>Import Daily Sales Orders (Daily Sales Report)</h2>
               <p class="section-desc">Upload your daily sales order report (CSV/Excel) to lock customer top-up values and prevent value fraud.</p>
             </div>
-            <span class="badge" style="background:#eff6ff;color:var(--primary);font-weight:700;">Prevents £15 vs £35 Mismatches</span>
+            <span class="badge" style="background:#e8f4fd;color:#0d4f8b;font-weight:700;">Prevents £15 vs £35 Mismatches</span>
           </div>
 
           <div id="order-drop-section" class="file-drop-zone">
@@ -234,7 +201,7 @@
           </div>
 
           <div id="order-preview-container" hidden style="margin-top: 14px;">
-            <div class="table-wrap" style="max-height: 240px; margin-bottom: 12px;">
+            <div class="table-wrap" style="max-height: 220px; margin-bottom: 12px;">
               <table>
                 <thead>
                   <tr>

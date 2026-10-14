@@ -282,34 +282,10 @@ async function refreshStats() {
     const ordersCount = ordersData && ordersData.ok ? ordersData.total : 0;
 
     stats.innerHTML = `
-      <div class="stat-card">
-        <div class="stat-info">
-          <span class="stat-label">Authorized SIMs</span>
-          <span class="stat-val">${Number(data.summary.total || 0).toLocaleString()}</span>
-        </div>
-        <div class="stat-icon">📶</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-info">
-          <span class="stat-label">Available Stock</span>
-          <span class="stat-val" style="color:var(--success-text);">${Number(data.summary.available || 0).toLocaleString()}</span>
-        </div>
-        <div class="stat-icon">✓</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-info">
-          <span class="stat-label">Verified Orders</span>
-          <span class="stat-val" style="color:var(--primary);">${Number(ordersCount || 0).toLocaleString()}</span>
-        </div>
-        <div class="stat-icon">📦</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-info">
-          <span class="stat-label">Top-Up Requests</span>
-          <span class="stat-val" style="color:#d97706;">${Number(data.summary.requestsCount || 0).toLocaleString()}</span>
-        </div>
-        <div class="stat-icon">⚡</div>
-      </div>
+      <span>Total Authorized SIMs: ${data.summary.total}</span>
+      <span>Available SIMs: ${data.summary.available}</span>
+      <span>Verified Orders: ${ordersCount}</span>
+      <span>Incoming Requests: ${data.summary.requestsCount || 0}</span>
     `;
   } catch (err) {
     console.error("Stats refresh error", err);
