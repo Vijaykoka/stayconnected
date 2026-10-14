@@ -3,44 +3,75 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SIM Verification &amp; Top-Up Request</title>
+    <title>UK SIM Verification &amp; Top-Up Request Portal</title>
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
     <header class="site-header">
       <a class="brand" href="/">
-        <span class="brand-icon" aria-hidden="true">S</span>
+        <span class="brand-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M17 2H7c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-3 18h-4v-1h4v1zm3-3H7V5h10v12z"/>
+          </svg>
+        </span>
         <span>Stayconnected</span>
       </a>
       <nav aria-label="Primary">
-        <a href="/">Home</a>
-        <a href="/test-data.html">Test data</a>
-        <a href="/admin.html">Admin</a>
+        <a href="/">Top-Up Portal</a>
+        <a href="/test-data.html">Test Data</a>
+        <a href="/admin.html">Vendor Admin</a>
       </nav>
     </header>
+
     <div class="offer-strip">
-      <span>✦</span>
-      <strong>Fast &amp; Secure Amazon SIM Verification and Top-Up Portal</strong>
-      <span>✦</span>
+      <span class="dot">●</span>
+      <span><strong>Official UK SIM Verification &amp; Top-Up Portal</strong> · Instant Recharges for O2, EE &amp; THREE</span>
+      <span class="dot">●</span>
     </div>
+
     <main class="shell">
       <section class="activation-panel" aria-labelledby="page-title">
         <div class="brand-row">
-          <div class="brand-mark" aria-hidden="true">S</div>
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" style="width:24px;height:24px;fill:currentColor;">
+              <path d="M2 22h20V2z"/>
+            </svg>
+          </div>
           <div>
-            <p class="eyebrow">Amazon SIM Services</p>
+            <p class="eyebrow">UK Mobile Services</p>
             <h1 id="page-title">SIM Top-Up Request</h1>
           </div>
         </div>
 
-        <p class="section-desc" style="margin-top: -12px; margin-bottom: 20px;">
-          Please enter your Amazon order details and SIM ICCID below to verify your card and submit your top-up request.
+        <!-- 3-Step Visual Progress Bar -->
+        <div class="form-steps" aria-hidden="true">
+          <div class="step-item active">
+            <span class="step-num">1</span>
+            <span>Verify Order</span>
+          </div>
+          <div class="step-divider"></div>
+          <div class="step-item">
+            <span class="step-num">2</span>
+            <span>Select Value</span>
+          </div>
+          <div class="step-divider"></div>
+          <div class="step-item">
+            <span class="step-num">3</span>
+            <span>Recharge</span>
+          </div>
+        </div>
+
+        <p class="section-desc">
+          Enter your purchase Order ID and SIM card ICCID below to verify your card and submit your instant mobile recharge.
         </p>
 
         <form id="topup-form" class="activation-form" novalidate>
-          <!-- Field 1: Amazon Order ID (Mandatory) -->
+          <!-- Field 1: Order ID (Mandatory) -->
           <label id="label-orderId">
-            <span>Amazon Order ID <span class="required-star">*</span></span>
+            <span>
+              Order ID <span class="required-star">*</span>
+              <span class="field-hint">e.g. 123-1234567-1234567</span>
+            </span>
             <input
               id="orderId"
               name="orderId"
@@ -52,15 +83,15 @@
             <small class="field-error-msg" id="err-orderId" hidden></small>
           </label>
 
-          <!-- Realtime Amazon Order Verification Pill -->
+          <!-- Realtime Order Verification Pill -->
           <div id="order-status-box" class="iccid-status-pill" hidden></div>
 
           <!-- Field 2: SIM Card ICCID (Mandatory; must match database) -->
           <label id="label-iccid">
-            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+            <span>
               <span>SIM Card ICCID <span class="required-star">*</span></span>
-              <button type="button" id="btn-validate-iccid" class="link-btn-text" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:12px;font-weight:700;padding:0;">Verify ICCID</button>
-            </div>
+              <button type="button" id="btn-validate-iccid" class="link-btn-text">Verify ICCID</button>
+            </span>
             <input
               id="iccid"
               name="iccid"
@@ -98,7 +129,10 @@
 
           <!-- Optional Email for confirmation -->
           <label id="label-email">
-            <span>Customer Email <span style="font-weight: normal; font-size: 12px; color: var(--muted);">(Optional for updates)</span></span>
+            <span>
+              Customer Email
+              <span class="field-hint">(Optional for receipt)</span>
+            </span>
             <input
               id="email"
               name="email"
@@ -109,8 +143,8 @@
           </label>
 
           <button id="submit-button" type="submit" style="margin-top: 6px;">
-            <span class="button-icon" aria-hidden="true">+</span>
             <span>Submit Top-Up Request</span>
+            <span class="button-icon" aria-hidden="true">→</span>
           </button>
         </form>
 
@@ -122,13 +156,13 @@
           <div class="receipt-header">
             <span class="receipt-check">✓</span>
             <div>
-              <h3>New SIM Top-Up Request Submitted</h3>
-              <p>Your request has been verified and recorded.</p>
+              <h3>Top-Up Request Submitted</h3>
+              <p>Your request has been verified and registered for operator recharge.</p>
             </div>
           </div>
           <div class="receipt-body">
             <div class="receipt-row">
-              <span class="receipt-label">Amazon Order ID</span>
+              <span class="receipt-label">Order ID</span>
               <span class="receipt-value" id="receipt-orderId">-</span>
             </div>
             <div class="receipt-row">
@@ -144,13 +178,29 @@
               <span class="receipt-value" id="receipt-value">-</span>
             </div>
             <div class="receipt-row">
-              <span class="receipt-label">ICCID Status</span>
-              <span class="receipt-badge">ICCID Verified ✓</span>
+              <span class="receipt-label">Verification Status</span>
+              <span class="receipt-badge">Verified &amp; Queued ✓</span>
             </div>
           </div>
           <button type="button" id="btn-submit-another" class="link-button secondary" style="width:100%;margin-top:16px;">
             Submit Another Request
           </button>
+        </div>
+
+        <!-- Trust & Security Badges -->
+        <div class="trust-badges" aria-label="Trust and security indicators">
+          <div class="trust-badge-item">
+            <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+            <span>256-Bit SSL Encrypted</span>
+          </div>
+          <div class="trust-badge-item">
+            <svg viewBox="0 0 24 24"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
+            <span>Instant Dispatch</span>
+          </div>
+          <div class="trust-badge-item">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+            <span>Official UK Carrier</span>
+          </div>
         </div>
       </section>
     </main>

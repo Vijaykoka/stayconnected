@@ -10,7 +10,7 @@ const receiptCard = document.querySelector("#receipt-card");
 const btnSubmitAnother = document.querySelector("#btn-submit-another");
 const urlParams = new URLSearchParams(window.location.search);
 
-let verifiedAmazonOrder = null;
+let verifiedOrder = null;
 
 const INVALID_ICCID_MSG = "Invalid ICCID. This SIM card is not registered in our database and does not belong to us.";
 
@@ -165,20 +165,20 @@ async function checkIccid() {
   }
 }
 
-// Live Amazon Order Check against Verified Orders Database
+// Live Order Check against Verified Orders Database
 async function checkOrderId() {
   clearFieldErrors();
   const raw = String(form.elements.orderId.value || "").trim().toUpperCase();
 
   if (!raw || !/^\d{3}-\d{7}-\d{7}$/.test(raw)) {
     orderStatusBox.hidden = true;
-    verifiedAmazonOrder = null;
+    verifiedOrder = null;
     return;
   }
 
   orderStatusBox.hidden = false;
   orderStatusBox.className = "iccid-status-pill loading";
-  orderStatusBox.textContent = "Checking Amazon order verification...";
+  orderStatusBox.textContent = "Verifying Order ID...";
 
   try {
     const res = await fetch(`/api/validate-order?orderId=${encodeURIComponent(raw)}`);
@@ -186,24 +186,24 @@ async function checkOrderId() {
 
     if (data.cancelled) {
       orderStatusBox.className = "iccid-status-pill error";
-      orderStatusBox.textContent = data.message || "This Amazon Order has been cancelled or returned on Amazon and is not eligible for a top-up.";
+      orderStatusBox.textContent = data.message || "This Order has been cancelled or returned and is not eligible for a top-up.";
       showFieldError("orderId", data.message || "Order returned/cancelled.");
-      verifiedAmazonOrder = null;
+      verifiedOrder = null;
       return;
     }
 
     if (data.claimed) {
       orderStatusBox.className = "iccid-status-pill error";
-      orderStatusBox.textContent = data.message || "This Amazon Order ID has already been redeemed.";
+      orderStatusBox.textContent = data.message || "This Order ID has already been redeemed.";
       showFieldError("orderId", data.message || "Order already redeemed.");
-      verifiedAmazonOrder = null;
+      verifiedOrder = null;
       return;
     }
 
     if (data.found && data.network && data.topUpValue) {
-      verifiedAmazonOrder = data;
+      verifiedOrder = data;
       orderStatusBox.className = "iccid-status-pill success";
-      orderStatusBox.innerHTML = `✓ <strong>Verified Amazon Purchase:</strong> ${data.network} ${data.topUpValue} (Selections Locked)`;
+      orderStatusBox.innerHTML = `✓ <strong>Verified Purchase:</strong> ${data.network} ${data.topUpValue} (Selections Locked)`;
 
       // Auto-set & lock network and top-up
       networkSelect.value = data.network;
@@ -213,7 +213,7 @@ async function checkOrderId() {
 
     // Valid format, but not yet pre-loaded in DB (e.g. fresh order)
     orderStatusBox.hidden = true;
-    verifiedAmazonOrder = null;
+    verifiedOrder = null;
   } catch {
     orderStatusBox.hidden = true;
   }
@@ -244,9 +244,9 @@ form.addEventListener("submit", async (event) => {
 
   let hasError = false;
 
-  // Validate Mandatory Field 1: Amazon Order ID
+  // Validate Mandatory Field 1: Order ID
   if (!orderId) {
-    showFieldError("orderId", "Amazon Order ID is mandatory.");
+    showFieldError("orderId", "Order ID is mandatory.");
     hasError = true;
   } else if (!/^\d{3}-\d{7}-\d{7}$/.test(orderId)) {
     showFieldError("orderId", "Format must be 123-1234567-1234567.");
@@ -274,16 +274,16 @@ form.addEventListener("submit", async (event) => {
     hasError = true;
   }
 
-  // Client-side mismatch prevention against verified Amazon purchase
-  if (verifiedAmazonOrder) {
-    if (verifiedAmazonOrder.network && verifiedAmazonOrder.network.toUpperCase() !== networkName.toUpperCase()) {
-      showFieldError("networkName", `Purchased for ${verifiedAmazonOrder.network}, not ${networkName}.`);
-      setResult("error", `Validation Mismatch: Amazon Order was purchased for ${verifiedAmazonOrder.network}. Please select ${verifiedAmazonOrder.network}.`);
+  // Client-side mismatch prevention against verified purchase
+  if (verifiedOrder) {
+    if (verifiedOrder.network && verifiedOrder.network.toUpperCase() !== networkName.toUpperCase()) {
+      showFieldError("networkName", `Purchased for ${verifiedOrder.network}, not ${networkName}.`);
+      setResult("error", `Validation Mismatch: Order was purchased for ${verifiedOrder.network}. Please select ${verifiedOrder.network}.`);
       hasError = true;
     }
-    if (verifiedAmazonOrder.topUpValue && verifiedAmazonOrder.topUpValue !== topUpValue) {
-      showFieldError("topUpValue", `Purchased for ${verifiedAmazonOrder.topUpValue}, not ${topUpValue}.`);
-      setResult("error", `Validation Mismatch: Amazon Order was purchased for ${verifiedAmazonOrder.topUpValue}, but you selected ${topUpValue}.`);
+    if (verifiedOrder.topUpValue && verifiedOrder.topUpValue !== topUpValue) {
+      showFieldError("topUpValue", `Purchased for ${verifiedOrder.topUpValue}, not ${topUpValue}.`);
+      setResult("error", `Validation Mismatch: Order was purchased for ${verifiedOrder.topUpValue}, but you selected ${topUpValue}.`);
       hasError = true;
     }
   }
@@ -342,7 +342,7 @@ form.addEventListener("submit", async (event) => {
 btnSubmitAnother.addEventListener("click", () => {
   form.reset();
   clearFieldErrors();
-  verifiedAmazonOrder = null;
+  verifiedOrder = null;
   form.hidden = false;
   receiptCard.hidden = true;
   result.hidden = true;

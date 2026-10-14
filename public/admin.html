@@ -9,27 +9,37 @@
   <body>
     <header class="site-header">
       <a class="brand" href="/">
-        <span class="brand-icon" aria-hidden="true">S</span>
+        <span class="brand-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M17 2H7c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-3 18h-4v-1h4v1zm3-3H7V5h10v12z"/>
+          </svg>
+        </span>
         <span>Stayconnected</span>
       </a>
       <nav aria-label="Primary">
         <a href="/">Customer Portal</a>
-        <a href="/test-data.html">Test data</a>
+        <a href="/test-data.html">Test Data</a>
         <a href="/admin.html">Admin</a>
       </nav>
     </header>
+
     <div class="offer-strip">
-      <span>✦</span>
-      <strong>SIM Verification &amp; Top-Up Request Management Dashboard</strong>
-      <span>✦</span>
+      <span class="dot">●</span>
+      <span><strong>SIM Verification &amp; Top-Up Request Management Dashboard</strong></span>
+      <span class="dot">●</span>
     </div>
+
     <main class="shell admin-shell">
       <section class="activation-panel admin-panel" aria-labelledby="admin-title">
         <div class="brand-row" style="justify-content: space-between; flex-wrap: wrap;">
           <div style="display: flex; align-items: center; gap: 14px;">
-            <div class="brand-mark" aria-hidden="true">S</div>
+            <div class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" style="width:24px;height:24px;fill:currentColor;">
+                <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+              </svg>
+            </div>
             <div>
-              <p class="eyebrow">Vendor Portal</p>
+              <p class="eyebrow">Vendor Administration</p>
               <h1 id="admin-title">Top-Up Requests &amp; SIM Inventory</h1>
             </div>
           </div>
@@ -40,9 +50,9 @@
             </a>
             <a id="btn-export-inventory" href="/api/admin/export-csv" class="link-button secondary" download>
               <span class="button-icon" aria-hidden="true">↓</span>
-              <span>Export SIM Inventory (CSV)</span>
+              <span>Export Inventory (CSV)</span>
             </a>
-            <button type="button" id="btn-logout" class="link-button" style="background:#5a6b7c;min-height:42px;">
+            <button type="button" id="btn-logout" class="link-button" style="background:#64748b;min-height:40px;">
               <span>Logout</span>
             </button>
           </div>
@@ -52,14 +62,14 @@
         <div id="login-modal" class="login-modal-overlay">
           <div class="login-modal-card">
             <div class="brand-row" style="margin-bottom: 12px;">
-              <div class="brand-mark" style="background:#0d4f8b;">🔒</div>
+              <div class="brand-mark" style="background:var(--primary);">🔒</div>
               <div>
                 <p class="eyebrow">Vendor Security Check</p>
                 <h2 style="font-size:22px;">Admin Access Required</h2>
               </div>
             </div>
             <p class="section-desc" style="margin-bottom:16px;">
-              This dashboard is protected. Please enter your Admin Password to view verified customer orders and manage your SIM inventory.
+              This dashboard is protected. Enter your Admin Password to view customer orders and manage SIM inventory.
             </p>
             <form id="admin-login-form" novalidate>
               <label>
@@ -74,11 +84,36 @@
           </div>
         </div>
 
+        <!-- KPI Stats Cards -->
         <div class="stats" id="stats">
-          <span>Total Authorized SIMs: --</span>
-          <span>Available SIMs: --</span>
-          <span>Verified Orders: --</span>
-          <span>Incoming Requests: --</span>
+          <div class="stat-card">
+            <div class="stat-info">
+              <span class="stat-label">Authorized SIMs</span>
+              <span class="stat-val">--</span>
+            </div>
+            <div class="stat-icon">📶</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-info">
+              <span class="stat-label">Available Stock</span>
+              <span class="stat-val">--</span>
+            </div>
+            <div class="stat-icon">✓</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-info">
+              <span class="stat-label">Verified Orders</span>
+              <span class="stat-val">--</span>
+            </div>
+            <div class="stat-icon">📦</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-info">
+              <span class="stat-label">Top-Up Requests</span>
+              <span class="stat-val">--</span>
+            </div>
+            <div class="stat-icon">⚡</div>
+          </div>
         </div>
 
         <!-- Section 1: Customer Incoming Top-Up Requests -->
@@ -95,7 +130,7 @@
             <table>
               <thead>
                 <tr>
-                  <th>Amazon Order ID</th>
+                  <th>Order ID</th>
                   <th>SIM ICCID</th>
                   <th>Network Name</th>
                   <th>Top-Up Value</th>
@@ -124,20 +159,20 @@
           </div>
 
           <form id="bulk-form" class="activation-form" novalidate>
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;">
               <label>
-                <span>Ecommerce Channel</span>
-                <input id="ecommerce" name="ecommerce" value="Amazon" required>
+                <span>Sales Channel</span>
+                <input id="ecommerce" name="ecommerce" value="Online Store" required>
               </label>
 
               <label>
                 <span>Batch / Shipment ID</span>
-                <input id="batchId" name="batchId" placeholder="AMZ-SHIPMENT-1000" required>
+                <input id="batchId" name="batchId" placeholder="SHIPMENT-1000" required>
               </label>
 
               <label>
                 <span>Default Network (optional)</span>
-                <input id="network" name="network" placeholder="e.g. giffgaff">
+                <input id="network" name="network" placeholder="e.g. O2 / EE / THREE">
               </label>
             </div>
 
@@ -174,39 +209,39 @@
           <div id="result" class="result" role="status" aria-live="polite" hidden></div>
         </div>
 
-        <!-- Section 2B: Import Amazon Orders Report -->
+        <!-- Section 2B: Import Daily Sales Orders Report -->
         <div class="bulk-import-card" style="margin-top: 24px;">
           <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px;">
             <div>
-              <h2>Import Amazon Orders (Daily Sales Report)</h2>
-              <p class="section-desc">Upload your Amazon Seller Central order report (CSV/Excel) to lock customer top-up values and prevent value fraud.</p>
+              <h2>Import Daily Sales Orders (Daily Sales Report)</h2>
+              <p class="section-desc">Upload your daily sales order report (CSV/Excel) to lock customer top-up values and prevent value fraud.</p>
             </div>
-            <span class="badge" style="background:#e8f4fd;color:#0d4f8b;font-weight:700;">Prevents £15 vs £35 Mismatches</span>
+            <span class="badge" style="background:#eff6ff;color:var(--primary);font-weight:700;">Prevents £15 vs £35 Mismatches</span>
           </div>
 
           <div id="order-drop-section" class="file-drop-zone">
             <input type="file" id="order-file-input" accept=".xlsx,.xls,.csv,.tsv,.txt" style="display:none;">
             <div class="drop-content" id="order-drop-content">
               <span class="drop-icon">📦</span>
-              <strong>Click or drag &amp; drop Amazon Orders Report (.csv / .xlsx / .tsv)</strong>
+              <strong>Click or drag &amp; drop Daily Sales Orders Report (.csv / .xlsx / .tsv)</strong>
               <span class="muted-text">Auto-detects Order ID (123-1234567-1234567), Network (EE, O2, THREE), and Purchased Top-Up (£10, £15, £20, £30, £35)</span>
             </div>
             <div id="order-file-info" class="file-info" hidden>
-              <span id="order-file-name">amazon-orders.csv</span>
+              <span id="order-file-name">sales-orders.csv</span>
               <span id="order-file-count" class="badge activated">0 Orders detected</span>
               <button type="button" id="btn-clear-order-file" class="btn-clear">Remove</button>
             </div>
           </div>
 
           <div id="order-preview-container" hidden style="margin-top: 14px;">
-            <div class="table-wrap" style="max-height: 220px; margin-bottom: 12px;">
+            <div class="table-wrap" style="max-height: 240px; margin-bottom: 12px;">
               <table>
                 <thead>
                   <tr>
-                    <th>Amazon Order ID</th>
+                    <th>Order ID</th>
                     <th>Network</th>
                     <th>Top-Up Value</th>
-                    <th>Product / ASIN</th>
+                    <th>Product / SKU</th>
                     <th>Order Status</th>
                   </tr>
                 </thead>
@@ -252,7 +287,7 @@
                 <th>Status</th>
                 <th>Network</th>
                 <th>Last Top-Up</th>
-                <th>Amazon Order ID</th>
+                <th>Order ID</th>
                 <th>Total Requests</th>
                 <th>Customer Email</th>
                 <th>Batch</th>
@@ -267,11 +302,11 @@
           </table>
         </div>
 
-        <!-- Section 4: Verified Amazon Orders List -->
+        <!-- Section 4: Verified Orders List -->
         <div class="inventory-head" style="margin-top: 32px;">
           <div>
-            <h2>Verified Amazon Orders Database</h2>
-            <p class="section-desc">All Amazon orders imported via daily CSV reports or real-time email alerts.</p>
+            <h2>Verified Orders Database</h2>
+            <p class="section-desc">All sales orders imported via daily CSV reports or real-time order alerts.</p>
           </div>
 
           <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
@@ -289,7 +324,7 @@
           <table>
             <thead>
               <tr>
-                <th>Amazon Order ID</th>
+                <th>Order ID</th>
                 <th>Purchased Network</th>
                 <th>Purchased Top-Up</th>
                 <th>Product Title / SKU</th>
@@ -301,7 +336,7 @@
             </thead>
             <tbody id="orders-rows">
               <tr>
-                <td colspan="8">Loading verified Amazon orders...</td>
+                <td colspan="8">Loading verified orders...</td>
               </tr>
             </tbody>
           </table>

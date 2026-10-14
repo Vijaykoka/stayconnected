@@ -158,7 +158,7 @@ async function validateOrderHandler(req, res) {
       orderId,
       network: order ? order.network : null,
       topUpValue: order ? order.topUpValue : null,
-      message: "This Amazon Order ID has already been redeemed for a SIM top-up."
+      message: "This Order ID has already been redeemed for a SIM top-up."
     });
   }
 
@@ -168,7 +168,7 @@ async function validateOrderHandler(req, res) {
       found: true,
       cancelled: true,
       orderId,
-      message: "This Amazon Order was returned or cancelled on Amazon and is not eligible for a top-up."
+      message: "This Order was returned or cancelled and is not eligible for a top-up."
     });
   }
 
@@ -191,7 +191,7 @@ async function validateOrderHandler(req, res) {
     itemTitle: order.itemTitle || "",
     sku: order.sku || "",
     itemPrice: order.itemPrice || "",
-    message: `Verified Amazon Order: ${order.network} ${order.topUpValue}`
+    message: `Verified Purchase: ${order.network} ${order.topUpValue}`
   });
 }
 
@@ -206,7 +206,7 @@ async function topupRequestHandler(req, res) {
 
   // Validate mandatory fields
   const missing = [];
-  if (!orderId) missing.push("Amazon Order ID");
+  if (!orderId) missing.push("Order ID");
   if (!iccid) missing.push("SIM card ICCID");
   if (!networkName) missing.push("Network Name");
   if (!topUpValue) missing.push("Top-Up Value");
@@ -224,7 +224,7 @@ async function topupRequestHandler(req, res) {
     return sendJson(res, 400, {
       ok: false,
       code: "INVALID_ORDER_ID",
-      message: "Enter a valid Amazon order ID in the format 123-1234567-1234567."
+      message: "Enter a valid Order ID in the format 123-1234567-1234567."
     });
   }
 
@@ -247,24 +247,24 @@ async function topupRequestHandler(req, res) {
     });
   }
 
-  // Check duplicate submissions of the exact same Amazon Order ID
+  // Check duplicate submissions of the exact same Order ID
   const isUsed = await db.isOrderIdUsed(orderId);
   if (isUsed) {
     return sendJson(res, 409, {
       ok: false,
       code: "DUPLICATE_ORDER_SUBMISSION",
-      message: "Duplicate submission. This Amazon Order ID has already been submitted for a top-up request."
+      message: "Duplicate submission. This Order ID has already been submitted for a top-up request."
     });
   }
 
-  // Check against Verified Amazon Orders Database if pre-loaded
+  // Check against Verified Orders Database if pre-loaded
   const registeredOrder = await db.getAmazonOrder(orderId);
   if (registeredOrder) {
     if (registeredOrder.status === "cancelled") {
       return sendJson(res, 400, {
         ok: false,
         code: "ORDER_CANCELLED",
-        message: "This Amazon Order was returned or cancelled on Amazon and cannot be redeemed."
+        message: "This Order was returned or cancelled and cannot be redeemed."
       });
     }
 
@@ -272,7 +272,7 @@ async function topupRequestHandler(req, res) {
       return sendJson(res, 409, {
         ok: false,
         code: "ORDER_ALREADY_CLAIMED",
-        message: `This Amazon Order ID has already been redeemed${registeredOrder.claimedIccid ? ` for SIM ${registeredOrder.claimedIccid}` : ""}.`
+        message: `This Order ID has already been redeemed${registeredOrder.claimedIccid ? ` for SIM ${registeredOrder.claimedIccid}` : ""}.`
       });
     }
 
@@ -280,7 +280,7 @@ async function topupRequestHandler(req, res) {
       return sendJson(res, 400, {
         ok: false,
         code: "ORDER_NETWORK_MISMATCH",
-        message: `Validation Error: Amazon Order ${orderId} was purchased for ${registeredOrder.network}, but you selected ${networkName}. Please select ${registeredOrder.network}.`
+        message: `Validation Error: Order ${orderId} was purchased for ${registeredOrder.network}, but you selected ${networkName}. Please select ${registeredOrder.network}.`
       });
     }
 
@@ -288,7 +288,7 @@ async function topupRequestHandler(req, res) {
       return sendJson(res, 400, {
         ok: false,
         code: "ORDER_VALUE_MISMATCH",
-        message: `Validation Error: Amazon Order ${orderId} was purchased for ${registeredOrder.topUpValue}, but you selected ${topUpValue}. Please select ${registeredOrder.topUpValue}.`
+        message: `Validation Error: Order ${orderId} was purchased for ${registeredOrder.topUpValue}, but you selected ${topUpValue}. Please select ${registeredOrder.topUpValue}.`
       });
     }
   }
@@ -402,7 +402,7 @@ async function exportRequestsCsvHandler(req, res) {
   const requests = await db.getRequests();
   const headers = [
     "Request ID",
-    "Amazon Order ID",
+    "Order ID",
     "SIM ICCID",
     "Network Name",
     "Top-Up Value",
@@ -447,7 +447,7 @@ async function exportCsvHandler(req, res) {
     "Status",
     "Network",
     "Last Top-Up Value",
-    "Amazon Order ID",
+    "Order ID",
     "Customer Email",
     "Batch ID",
     "Total Requests",

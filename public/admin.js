@@ -31,7 +31,7 @@ const fileName = document.querySelector("#file-name");
 const fileCount = document.querySelector("#file-count");
 const btnClearFile = document.querySelector("#btn-clear-file");
 
-// Amazon Orders Drop & Table Elements
+// Sales Orders Drop & Table Elements
 const orderDropSection = document.querySelector("#order-drop-section");
 const orderFileInput = document.querySelector("#order-file-input");
 const orderDropContent = document.querySelector("#order-drop-content");
@@ -282,10 +282,34 @@ async function refreshStats() {
     const ordersCount = ordersData && ordersData.ok ? ordersData.total : 0;
 
     stats.innerHTML = `
-      <span>Total Authorized SIMs: ${data.summary.total}</span>
-      <span>Available SIMs: ${data.summary.available}</span>
-      <span>Verified Orders: ${ordersCount}</span>
-      <span>Incoming Requests: ${data.summary.requestsCount || 0}</span>
+      <div class="stat-card">
+        <div class="stat-info">
+          <span class="stat-label">Authorized SIMs</span>
+          <span class="stat-val">${Number(data.summary.total || 0).toLocaleString()}</span>
+        </div>
+        <div class="stat-icon">📶</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-info">
+          <span class="stat-label">Available Stock</span>
+          <span class="stat-val" style="color:var(--success-text);">${Number(data.summary.available || 0).toLocaleString()}</span>
+        </div>
+        <div class="stat-icon">✓</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-info">
+          <span class="stat-label">Verified Orders</span>
+          <span class="stat-val" style="color:var(--primary);">${Number(ordersCount || 0).toLocaleString()}</span>
+        </div>
+        <div class="stat-icon">📦</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-info">
+          <span class="stat-label">Top-Up Requests</span>
+          <span class="stat-val" style="color:#d97706;">${Number(data.summary.requestsCount || 0).toLocaleString()}</span>
+        </div>
+        <div class="stat-icon">⚡</div>
+      </div>
     `;
   } catch (err) {
     console.error("Stats refresh error", err);
@@ -379,7 +403,7 @@ async function refreshAll() {
   }
 }
 
-// 4. Refresh Verified Amazon Orders Table
+// 4. Refresh Verified Orders Table
 async function refreshOrders() {
   if (!getAdminToken() || !ordersRows) return;
   try {
@@ -393,7 +417,7 @@ async function refreshOrders() {
     if (!data.ok) return;
 
     if (!data.orders || data.orders.length === 0) {
-      ordersRows.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted);">No verified Amazon orders in database. Upload your daily report or receive email alerts to populate this table.</td></tr>';
+      ordersRows.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted);">No verified orders in database. Upload your daily report or receive email alerts to populate this table.</td></tr>';
       return;
     }
 
@@ -497,7 +521,7 @@ if (searchInput) {
   });
 }
 
-// Amazon Orders File Drop & Parse
+// Sales Orders File Drop & Parse
 if (orderDropSection && orderFileInput) {
   orderDropSection.addEventListener("click", () => orderFileInput.click());
   orderDropSection.addEventListener("dragover", (e) => {
@@ -541,13 +565,13 @@ function handleOrderFile(file) {
   orderImportResult.hidden = true;
 
   const processRows = (rows) => {
-    parsedOrders = parseAmazonOrderRows(rows);
+    parsedOrders = parseOrderRows(rows);
     const activeCount = parsedOrders.filter((o) => o.status !== "cancelled").length;
     const cancelledCount = parsedOrders.length - activeCount;
 
     orderFileCount.textContent = cancelledCount > 0
       ? `${activeCount} Active orders (${cancelledCount} Returns/Cancelled flagged)`
-      : `${parsedOrders.length.toLocaleString()} Amazon orders detected`;
+      : `${parsedOrders.length.toLocaleString()} Orders detected`;
     importOrdersBtnLabel.textContent = `Confirm & Import ${parsedOrders.length.toLocaleString()} Verified Orders`;
 
     if (parsedOrders.length > 0) {
@@ -565,7 +589,7 @@ function handleOrderFile(file) {
       orderPreviewContainer.hidden = true;
       orderImportResult.hidden = false;
       orderImportResult.className = "result error";
-      orderImportResult.innerHTML = "<strong>No Amazon Order IDs (format 123-1234567-1234567) found in this file.</strong>";
+      orderImportResult.innerHTML = "<strong>No Order IDs (format 123-1234567-1234567) found in this file.</strong>";
     }
   };
 
@@ -625,7 +649,7 @@ const ASIN_CATALOG = {
   "B0FQ5LH556": { network: "O2", topUp: "£10", title: "VOXI SIM (£10)" }
 };
 
-function parseAmazonOrderRows(rows) {
+function parseOrderRows(rows) {
   if (!Array.isArray(rows) || rows.length === 0) return [];
   let headerRowIdx = -1;
   let orderIdCol = -1;
@@ -722,7 +746,7 @@ function parseAmazonOrderRows(rows) {
     }
 
     const sku = skuCol !== -1 ? String(row[skuCol] || "").trim() : "";
-    const title = catalogEntry ? catalogEntry.title : (titleCol !== -1 ? String(row[titleCol] || "").trim() : (sku || "Amazon Order"));
+    const title = catalogEntry ? catalogEntry.title : (titleCol !== -1 ? String(row[titleCol] || "").trim() : (sku || "Order Item"));
     const priceRaw = priceCol !== -1 ? String(row[priceCol] || "").trim() : "";
 
     detectedOrders.push({
@@ -766,7 +790,7 @@ if (btnImportOrders) {
       }
       orderImportResult.hidden = false;
       orderImportResult.className = "result success";
-      orderImportResult.innerHTML = `✓ <strong>Success:</strong> Imported ${data.inserted} new Amazon orders (${data.updated} updated). Customer selections on website are now strictly validated!`;
+      orderImportResult.innerHTML = `✓ <strong>Success:</strong> Imported ${data.inserted} new orders (${data.updated} updated). Customer selections on website are now strictly validated!`;
       btnClearOrderFile.click();
       await refreshAll();
     } catch {

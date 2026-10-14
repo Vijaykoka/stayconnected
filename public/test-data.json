@@ -3,7 +3,7 @@
   "note": "Local testing only. Do not expose this file in production.",
   "rows": [
     {
-      "ecommerce": "Amazon",
+      "ecommerce": "Marketplace",
       "orderId": "868-9604791-1025782",
       "iccid": "8944114901000300001",
       "networkName": "O2",
@@ -11,7 +11,7 @@
       "batchId": "AMZ-BATCH-1792001181407"
     },
     {
-      "ecommerce": "Amazon",
+      "ecommerce": "Marketplace",
       "orderId": "572-9054599-0922965",
       "iccid": "8944118969663100002",
       "networkName": "EE",
@@ -19,7 +19,7 @@
       "batchId": "AMZ-BATCH-1792001181407"
     },
     {
-      "ecommerce": "Amazon",
+      "ecommerce": "Marketplace",
       "orderId": "855-4440137-9435881",
       "iccid": "8944116593531000003",
       "networkName": "THREE",
@@ -27,7 +27,7 @@
       "batchId": "AMZ-BATCH-1792001181407"
     },
     {
-      "ecommerce": "Amazon",
+      "ecommerce": "Marketplace",
       "orderId": "461-2055842-5999353",
       "iccid": "8944116789927800004",
       "networkName": "O2",
@@ -35,7 +35,7 @@
       "batchId": "AMZ-BATCH-1792001181407"
     },
     {
-      "ecommerce": "Amazon",
+      "ecommerce": "Marketplace",
       "orderId": "011-1226315-7791355",
       "iccid": "8944113172641300005",
       "networkName": "EE",
@@ -43,7 +43,7 @@
       "batchId": "AMZ-BATCH-1792001181407"
     },
     {
-      "ecommerce": "Amazon",
+      "ecommerce": "Marketplace",
       "orderId": "501-2089956-3713583",
       "iccid": "8944116781076900006",
       "networkName": "THREE",
@@ -51,7 +51,7 @@
       "batchId": "AMZ-BATCH-1792001181407"
     },
     {
-      "ecommerce": "Amazon",
+      "ecommerce": "Marketplace",
       "orderId": "778-8878214-6338341",
       "iccid": "8944117480938600007",
       "networkName": "O2",
@@ -59,7 +59,7 @@
       "batchId": "AMZ-BATCH-1792001181407"
     },
     {
-      "ecommerce": "Amazon",
+      "ecommerce": "Marketplace",
       "orderId": "806-9051954-1670074",
       "iccid": "8944118569362000008",
       "networkName": "EE",
@@ -67,7 +67,7 @@
       "batchId": "AMZ-BATCH-1792001181407"
     },
     {
-      "ecommerce": "Amazon",
+      "ecommerce": "Marketplace",
       "orderId": "553-9816322-1652891",
       "iccid": "8944117446002900009",
       "networkName": "THREE",
@@ -75,7 +75,7 @@
       "batchId": "AMZ-BATCH-1792001181407"
     },
     {
-      "ecommerce": "Amazon",
+      "ecommerce": "Marketplace",
       "orderId": "507-2532934-5749228",
       "iccid": "8944113918087000010",
       "networkName": "O2",
@@ -83,7 +83,7 @@
       "batchId": "AMZ-BATCH-1792001181407"
     },
     {
-      "ecommerce": "Amazon",
+      "ecommerce": "Marketplace",
       "orderId": "768-1643757-7294230",
       "iccid": "8944116282352100011",
       "networkName": "EE",
@@ -91,7 +91,7 @@
       "batchId": "AMZ-BATCH-1792001181407"
     },
     {
-      "ecommerce": "Amazon",
+      "ecommerce": "Marketplace",
       "orderId": "577-5467664-0650591",
       "iccid": "8944115815740900012",
       "networkName": "THREE",
@@ -99,7 +99,7 @@
       "batchId": "AMZ-BATCH-1792001181407"
     },
     {
-      "ecommerce": "Amazon",
+      "ecommerce": "Marketplace",
       "orderId": "758-3331165-1523550",
       "iccid": "8944118173431700013",
       "networkName": "O2",
@@ -107,7 +107,7 @@
       "batchId": "AMZ-BATCH-1792001181407"
     },
     {
-      "ecommerce": "Amazon",
+      "ecommerce": "Marketplace",
       "orderId": "993-6442271-7563132",
       "iccid": "8944117640089400014",
       "networkName": "EE",
@@ -115,7 +115,7 @@
       "batchId": "AMZ-BATCH-1792001181407"
     },
     {
-      "ecommerce": "Amazon",
+      "ecommerce": "Marketplace",
       "orderId": "839-7530446-9682504",
       "iccid": "8944112607197600015",
       "networkName": "THREE",
@@ -123,7 +123,7 @@
       "batchId": "AMZ-BATCH-1792001181407"
     },
     {
-      "ecommerce": "Amazon",
+      "ecommerce": "Marketplace",
       "orderId": "245-8525898-0563536",
       "iccid": "8944116283940500016",
       "networkName": "O2",
@@ -131,7 +131,7 @@
       "batchId": "AMZ-BATCH-1792001181407"
     },
     {
-      "ecommerce": "Amazon",
+      "ecommerce": "Marketplace",
       "orderId": "841-1823147-6249835",
       "iccid": "8944113457967000017",
       "networkName": "EE",
@@ -139,7 +139,7 @@
       "batchId": "AMZ-BATCH-1792001181407"
     },
     {
-      "ecommerce": "Amazon",
+      "ecommerce": "Marketplace",
       "orderId": "655-2383310-3325281",
       "iccid": "8944118023373200018",
       "networkName": "THREE",
@@ -147,7 +147,7 @@
       "batchId": "AMZ-BATCH-1792001181407"
     },
     {
-      "ecommerce": "Amazon",
+      "ecommerce": "Marketplace",
       "orderId": "419-2317773-8094802",
       "iccid": "8944112471500900019",
       "networkName": "O2",
@@ -155,7 +155,7 @@
       "batchId": "AMZ-BATCH-1792001181407"
     },
     {
-      "ecommerce": "Amazon",
+      "ecommerce": "Marketplace",
       "orderId": "091-2622797-0144340",
       "iccid": "8944115009027000020",
       "networkName": "EE",
@@ -164,3 +164,4 @@
     }
   ]
 }
+

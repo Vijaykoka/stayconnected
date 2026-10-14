@@ -90,7 +90,7 @@ async function handleApiRequest(request, env, url) {
       return jsonResponse({
         ok: false,
         code: "INVALID_ORDER_ID_FORMAT",
-        message: "Enter a valid Amazon order ID in the format 123-1234567-1234567."
+        message: "Enter a valid Order ID in the format 123-1234567-1234567."
       }, 400);
     }
 
@@ -106,7 +106,7 @@ async function handleApiRequest(request, env, url) {
           orderId,
           network: order ? order.network : null,
           topUpValue: order ? order.top_up_value : null,
-          message: "This Amazon Order ID has already been redeemed for a SIM top-up."
+          message: "This Order ID has already been redeemed for a SIM top-up."
         });
       }
 
@@ -116,7 +116,7 @@ async function handleApiRequest(request, env, url) {
           found: true,
           cancelled: true,
           orderId,
-          message: "This Amazon Order was returned or cancelled on Amazon and is not eligible for a top-up."
+          message: "This Order was returned or cancelled and is not eligible for a top-up."
         });
       }
 
@@ -134,7 +134,7 @@ async function handleApiRequest(request, env, url) {
         itemTitle: order.item_title || "",
         sku: order.sku || "",
         itemPrice: order.item_price || "",
-        message: `Verified Amazon Order: ${order.network} ${order.top_up_value}`
+        message: `Verified Purchase: ${order.network} ${order.top_up_value}`
       });
     }
 
@@ -151,7 +151,7 @@ async function handleApiRequest(request, env, url) {
     const email = String(payload.email || "").trim().toLowerCase();
 
     const missing = [];
-    if (!orderId) missing.push("Amazon Order ID");
+    if (!orderId) missing.push("Order ID");
     if (!iccid) missing.push("SIM card ICCID");
     if (!networkName) missing.push("Network Name");
     if (!topUpValue) missing.push("Top-Up Value");
@@ -168,7 +168,7 @@ async function handleApiRequest(request, env, url) {
       return jsonResponse({
         ok: false,
         code: "INVALID_ORDER_ID",
-        message: "Enter a valid Amazon order ID in the format 123-1234567-1234567."
+        message: "Enter a valid Order ID in the format 123-1234567-1234567."
       }, 400);
     }
 
@@ -187,7 +187,7 @@ async function handleApiRequest(request, env, url) {
         return jsonResponse({
           ok: false,
           code: "DUPLICATE_ORDER_SUBMISSION",
-          message: "Duplicate submission. This Amazon Order ID has already been submitted for a top-up request."
+          message: "Duplicate submission. This Order ID has already been submitted for a top-up request."
         }, 409);
       }
 
@@ -198,28 +198,28 @@ async function handleApiRequest(request, env, url) {
           return jsonResponse({
             ok: false,
             code: "ORDER_CANCELLED",
-            message: "This Amazon Order was returned or cancelled on Amazon and cannot be redeemed."
+            message: "This Order was returned or cancelled and cannot be redeemed."
           }, 400);
         }
         if (regOrder.status === "claimed") {
           return jsonResponse({
             ok: false,
             code: "ORDER_ALREADY_CLAIMED",
-            message: `This Amazon Order ID has already been redeemed${regOrder.claimed_iccid ? ` for SIM ${regOrder.claimed_iccid}` : ""}.`
+            message: `This Order ID has already been redeemed${regOrder.claimed_iccid ? ` for SIM ${regOrder.claimed_iccid}` : ""}.`
           }, 409);
         }
         if (regOrder.network && regOrder.network.toUpperCase() !== networkName.toUpperCase()) {
           return jsonResponse({
             ok: false,
             code: "ORDER_NETWORK_MISMATCH",
-            message: `Validation Error: Amazon Order ${orderId} was purchased for ${regOrder.network}, but you selected ${networkName}. Please select ${regOrder.network}.`
+            message: `Validation Error: Order ${orderId} was purchased for ${regOrder.network}, but you selected ${networkName}. Please select ${regOrder.network}.`
           }, 400);
         }
         if (regOrder.top_up_value && regOrder.top_up_value !== topUpValue) {
           return jsonResponse({
             ok: false,
             code: "ORDER_VALUE_MISMATCH",
-            message: `Validation Error: Amazon Order ${orderId} was purchased for ${regOrder.top_up_value}, but you selected ${topUpValue}. Please select ${regOrder.top_up_value}.`
+            message: `Validation Error: Order ${orderId} was purchased for ${regOrder.top_up_value}, but you selected ${topUpValue}. Please select ${regOrder.top_up_value}.`
           }, 400);
         }
       }
@@ -373,7 +373,7 @@ async function handleApiRequest(request, env, url) {
     if (key !== adminPassword && !checkAuth(request, env)) {
       return jsonResponse({ ok: false, message: "Unauthorized. Admin password required." }, 401);
     }
-    let csv = "Request ID,Amazon Order ID,SIM ICCID,Network Name,Top-Up Value,ICCID Verified,Customer Email,Submitted At\r\n";
+    let csv = "Request ID,Order ID,SIM ICCID,Network Name,Top-Up Value,ICCID Verified,Customer Email,Submitted At\r\n";
     if (env.DB) {
       const { results } = await env.DB.prepare("SELECT * FROM topup_requests ORDER BY submitted_at DESC").all();
       for (const r of results || []) {
@@ -396,7 +396,7 @@ async function handleApiRequest(request, env, url) {
     const payload = await request.json().catch(() => ({}));
     const rawOrders = Array.isArray(payload.orders) ? payload.orders : [];
     if (rawOrders.length === 0) {
-      return jsonResponse({ ok: false, message: "No Amazon orders provided." }, 400);
+      return jsonResponse({ ok: false, message: "No orders provided." }, 400);
     }
 
     if (env.DB) {
