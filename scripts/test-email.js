@@ -1,3 +1,7 @@
+try {
+  process.loadEnvFile();
+} catch {}
+
 const { sendTopUpNotification } = require("../mailer");
 
 async function main() {
