@@ -1,0 +1,30 @@
+{
+  "orders": [
+    {
+      "orderId": "206-1234567-8901234",
+      "network": "EE",
+      "topUpValue": "£15",
+      "itemTitle": "EE £15 Preloaded SIM",
+      "sku": "EE-15-SIM",
+      "itemPrice": "15.00",
+      "source": "csv_upload",
+      "status": "claimed",
+      "claimedIccid": "8944111111111111111",
+      "claimedAt": "2026-10-14T18:28:09.778Z",
+      "createdAt": "2026-10-14T18:27:27.603Z"
+    },
+    {
+      "orderId": "206-9999999-1111111",
+      "network": "O2",
+      "topUpValue": "£20",
+      "itemTitle": "O2 £20 Top Up Voucher SIM",
+      "sku": "",
+      "itemPrice": "20",
+      "source": "email_alert",
+      "status": "unclaimed",
+      "claimedIccid": null,
+      "claimedAt": null,
+      "createdAt": "2026-10-14T18:28:28.925Z"
+    }
+  ]
+}

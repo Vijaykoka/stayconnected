@@ -1,3 +1,16 @@
 {
-  "notifications": []
+  "notifications": [
+    {
+      "type": "NEW_SIM_TOPUP_REQUEST",
+      "id": "REQ-DCBDA15B",
+      "title": "New SIM Top-Up Request",
+      "amazonOrderId": "206-1234567-8901234",
+      "simIccid": "8944111111111111111",
+      "networkName": "EE",
+      "topUpValue": "£15",
+      "iccidVerified": true,
+      "customerEmail": null,
+      "submittedAt": "2026-10-14T18:28:09.773Z"
+    }
+  ]
 }

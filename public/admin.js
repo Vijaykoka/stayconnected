@@ -31,8 +31,26 @@ const fileName = document.querySelector("#file-name");
 const fileCount = document.querySelector("#file-count");
 const btnClearFile = document.querySelector("#btn-clear-file");
 
+// Amazon Orders Drop & Table Elements
+const orderDropSection = document.querySelector("#order-drop-section");
+const orderFileInput = document.querySelector("#order-file-input");
+const orderDropContent = document.querySelector("#order-drop-content");
+const orderFileInfo = document.querySelector("#order-file-info");
+const orderFileName = document.querySelector("#order-file-name");
+const orderFileCount = document.querySelector("#order-file-count");
+const btnClearOrderFile = document.querySelector("#btn-clear-order-file");
+const orderPreviewContainer = document.querySelector("#order-preview-container");
+const orderPreviewRows = document.querySelector("#order-preview-rows");
+const btnImportOrders = document.querySelector("#btn-import-orders");
+const importOrdersBtnLabel = document.querySelector("#import-orders-btn-label");
+const orderImportResult = document.querySelector("#order-import-result");
+const ordersRows = document.querySelector("#orders-rows");
+const searchOrdersInput = document.querySelector("#search-orders-input");
+const btnRefreshOrders = document.querySelector("#btn-refresh-orders");
+
 let activeStatus = "all";
 let parsedFileIccids = [];
+let parsedOrders = [];
 
 function getAdminToken() {
   return sessionStorage.getItem("admin_token") || "";
@@ -257,10 +275,16 @@ async function refreshStats() {
     }
     const data = await response.json();
     if (!data.ok) return;
+
+    // Fetch verified orders count
+    const ordersRes = await fetch("/api/admin/orders", { headers: getAuthHeaders() }).catch(() => null);
+    const ordersData = ordersRes ? await ordersRes.json().catch(() => null) : null;
+    const ordersCount = ordersData && ordersData.ok ? ordersData.total : 0;
+
     stats.innerHTML = `
       <span>Total Authorized SIMs: ${data.summary.total}</span>
       <span>Available SIMs: ${data.summary.available}</span>
-      <span>Activated SIMs: ${data.summary.activated}</span>
+      <span>Verified Orders: ${ordersCount}</span>
       <span>Incoming Requests: ${data.summary.requestsCount || 0}</span>
     `;
   } catch (err) {
@@ -351,7 +375,50 @@ async function refreshInventory() {
 
 async function refreshAll() {
   if (checkAuth()) {
-    await Promise.all([refreshStats(), refreshRequests(), refreshInventory()]);
+    await Promise.all([refreshStats(), refreshRequests(), refreshInventory(), refreshOrders()]);
+  }
+}
+
+// 4. Refresh Verified Amazon Orders Table
+async function refreshOrders() {
+  if (!getAdminToken() || !ordersRows) return;
+  try {
+    const search = searchOrdersInput ? searchOrdersInput.value.trim() : "";
+    const response = await fetch(`/api/admin/orders?search=${encodeURIComponent(search)}`, { headers: getAuthHeaders() });
+    if (response.status === 401) {
+      setAdminToken("");
+      return;
+    }
+    const data = await response.json();
+    if (!data.ok) return;
+
+    if (!data.orders || data.orders.length === 0) {
+      ordersRows.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted);">No verified Amazon orders in database. Upload your daily report or receive email alerts to populate this table.</td></tr>';
+      return;
+    }
+
+    ordersRows.innerHTML = data.orders
+      .map((o) => {
+        const isClaimed = o.status === "claimed";
+        const statusBadge = isClaimed
+          ? `<span class="badge activated">Redeemed ✓</span>`
+          : `<span class="badge available">Unclaimed</span>`;
+        return `
+          <tr>
+            <td><code style="font-weight:bold;color:var(--primary);">${o.orderId}</code></td>
+            <td><span class="badge" style="background:#e8f4fd;color:#0b5394;">${o.network}</span></td>
+            <td><strong style="color:#146b37;">${o.topUpValue}</strong></td>
+            <td><small>${o.itemTitle || o.sku || "-"}</small></td>
+            <td>${statusBadge}</td>
+            <td>${o.claimedIccid ? `<code>${o.claimedIccid}</code>` : "-"}</td>
+            <td><span class="badge" style="background:#f0f4f8;color:var(--muted);">${o.source === "email_alert" ? "✉ Email Alert" : "📄 CSV Report"}</span></td>
+            <td>${formatDate(o.createdAt)}</td>
+          </tr>
+        `;
+      })
+      .join("");
+  } catch (err) {
+    console.error("Orders refresh error", err);
   }
 }
 
@@ -430,6 +497,242 @@ if (searchInput) {
   });
 }
 
+// Amazon Orders File Drop & Parse
+if (orderDropSection && orderFileInput) {
+  orderDropSection.addEventListener("click", () => orderFileInput.click());
+  orderDropSection.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    orderDropSection.classList.add("drag-over");
+  });
+  orderDropSection.addEventListener("dragleave", () => orderDropSection.classList.remove("drag-over"));
+  orderDropSection.addEventListener("drop", (e) => {
+    e.preventDefault();
+    orderDropSection.classList.remove("drag-over");
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleOrderFile(e.dataTransfer.files[0]);
+    }
+  });
+
+  orderFileInput.addEventListener("change", () => {
+    if (orderFileInput.files && orderFileInput.files[0]) {
+      handleOrderFile(orderFileInput.files[0]);
+    }
+  });
+}
+
+if (btnClearOrderFile) {
+  btnClearOrderFile.addEventListener("click", (e) => {
+    e.stopPropagation();
+    parsedOrders = [];
+    orderFileInput.value = "";
+    orderFileInfo.hidden = true;
+    orderDropContent.hidden = false;
+    orderPreviewContainer.hidden = true;
+    orderImportResult.hidden = true;
+  });
+}
+
+function handleOrderFile(file) {
+  const isExcel = /\.(xlsx|xls)$/i.test(file.name);
+  orderFileName.textContent = file.name;
+  orderFileCount.textContent = "Parsing orders...";
+  orderFileInfo.hidden = false;
+  orderDropContent.hidden = true;
+  orderImportResult.hidden = true;
+
+  const processRows = (rows) => {
+    parsedOrders = parseAmazonOrderRows(rows);
+    orderFileCount.textContent = `${parsedOrders.length.toLocaleString()} Amazon orders detected`;
+    importOrdersBtnLabel.textContent = `Confirm & Import ${parsedOrders.length.toLocaleString()} Verified Orders`;
+
+    if (parsedOrders.length > 0) {
+      orderPreviewContainer.hidden = false;
+      orderPreviewRows.innerHTML = parsedOrders.slice(0, 10).map((o) => `
+        <tr>
+          <td><code>${o.orderId}</code></td>
+          <td><span class="badge" style="background:#e8f4fd;color:#0b5394;">${o.network}</span></td>
+          <td><strong style="color:#146b37;">${o.topUpValue}</strong></td>
+          <td><small>${o.itemTitle || o.sku}</small></td>
+          <td>${o.itemPrice ? `£${o.itemPrice}` : o.topUpValue}</td>
+        </tr>
+      `).join("") + (parsedOrders.length > 10 ? `<tr><td colspan="5" style="text-align:center;color:var(--muted);font-style:italic;">...and ${parsedOrders.length - 10} more orders ready to import</td></tr>` : "");
+    } else {
+      orderPreviewContainer.hidden = true;
+      orderImportResult.hidden = false;
+      orderImportResult.className = "result error";
+      orderImportResult.innerHTML = "<strong>No Amazon Order IDs (format 123-1234567-1234567) found in this file.</strong>";
+    }
+  };
+
+  if (isExcel && typeof XLSX !== "undefined") {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const allRows = [];
+        for (const sheetName of workbook.SheetNames) {
+          const sheet = workbook.Sheets[sheetName];
+          const sheetRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+          allRows.push(...sheetRows);
+        }
+        processRows(allRows);
+      } catch (err) {
+        orderImportResult.hidden = false;
+        orderImportResult.className = "result error";
+        orderImportResult.textContent = "Excel parse error: " + err.message;
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    return;
+  }
+
+  // Fallback CSV / TSV / Semicolon reader
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    const lines = text.split(/\r?\n/).filter(Boolean);
+    const rows = lines.map((l) => l.split(/[\t,;]/).map((c) => c.replace(/^"|"$/g, "").trim()));
+    processRows(rows);
+  };
+  reader.readAsText(file);
+}
+
+function parseAmazonOrderRows(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  let headerRowIdx = -1;
+  let orderIdCol = -1;
+  let skuCol = -1;
+  let titleCol = -1;
+  let priceCol = -1;
+
+  for (let r = 0; r < Math.min(rows.length, 5); r++) {
+    const row = rows[r];
+    if (Array.isArray(row)) {
+      for (let c = 0; c < row.length; c++) {
+        const val = String(row[c] || "").trim().toLowerCase().replace(/["_\s-]/g, "");
+        if (val === "orderid" || val === "amazonorderid") orderIdCol = c;
+        if (val === "sku" || val === "merchantsku" || val === "sellersku") skuCol = c;
+        if (val === "productname" || val === "itemname" || val === "title" || val === "itemtitle" || val === "products") titleCol = c;
+        if (val === "itemprice" || val === "price" || val === "amount" || val === "ordertotalamount") priceCol = c;
+      }
+      if (orderIdCol !== -1) {
+        headerRowIdx = r;
+        break;
+      }
+    }
+  }
+
+  const detectedOrders = [];
+  const startRow = headerRowIdx !== -1 ? headerRowIdx + 1 : 0;
+
+  for (let i = startRow; i < rows.length; i++) {
+    const row = rows[i];
+    if (!Array.isArray(row)) continue;
+
+    let orderId = "";
+    if (orderIdCol !== -1) {
+      orderId = String(row[orderIdCol] || "").trim().toUpperCase();
+    } else {
+      for (const cell of row) {
+        const match = String(cell || "").match(/\b\d{3}-\d{7}-\d{7}\b/);
+        if (match) {
+          orderId = match[0];
+          break;
+        }
+      }
+    }
+
+    if (!/^\d{3}-\d{7}-\d{7}$/.test(orderId)) continue;
+
+    const rowText = row.map((c) => String(c || "")).join(" ");
+    const sku = skuCol !== -1 ? String(row[skuCol] || "").trim() : "";
+    const title = titleCol !== -1 ? String(row[titleCol] || "").trim() : "";
+    const priceRaw = priceCol !== -1 ? String(row[priceCol] || "").trim() : "";
+
+    let network = "EE";
+    if (/\b(?:O2|O 2)\b/i.test(rowText)) network = "O2";
+    else if (/\b(?:EE|Everything Everywhere)\b/i.test(rowText)) network = "EE";
+    else if (/\b(?:THREE|3 UK|Three UK)\b/i.test(rowText)) network = "THREE";
+
+    let topUpValue = "£15";
+    const priceMatch = (priceRaw + " " + rowText).match(/(?:£|GBP\s*|price[:\s]*£?)\s*(10|15|20|30|35)(?:\.00)?\b/i) ||
+                       (priceRaw + " " + rowText).match(/\b(10|15|20|30|35)\s*(?:pounds|gbp|top\s*up)/i);
+    if (priceMatch) {
+      topUpValue = `£${priceMatch[1]}`;
+    } else {
+      if (rowText.includes("£35") || rowText.includes("35.00")) topUpValue = "£35";
+      else if (rowText.includes("£30") || rowText.includes("30.00")) topUpValue = "£30";
+      else if (rowText.includes("£20") || rowText.includes("20.00")) topUpValue = "£20";
+      else if (rowText.includes("£15") || rowText.includes("15.00")) topUpValue = "£15";
+      else if (rowText.includes("£10") || rowText.includes("10.00")) topUpValue = "£10";
+    }
+
+    detectedOrders.push({
+      orderId,
+      network,
+      topUpValue,
+      itemTitle: title || sku || "Amazon Order",
+      sku,
+      itemPrice: priceRaw || topUpValue.replace("£", "")
+    });
+  }
+
+  const uniqueMap = new Map();
+  for (const ord of detectedOrders) {
+    if (!uniqueMap.has(ord.orderId)) uniqueMap.set(ord.orderId, ord);
+  }
+  return Array.from(uniqueMap.values());
+}
+
+if (btnImportOrders) {
+  btnImportOrders.addEventListener("click", async () => {
+    if (!checkAuth() || parsedOrders.length === 0) return;
+    btnImportOrders.disabled = true;
+    importOrdersBtnLabel.textContent = `Importing ${parsedOrders.length} orders...`;
+    orderImportResult.hidden = true;
+
+    try {
+      const response = await fetch("/api/admin/orders-bulk", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ orders: parsedOrders })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        orderImportResult.hidden = false;
+        orderImportResult.className = "result error";
+        orderImportResult.textContent = data.message || "Failed to import orders.";
+        return;
+      }
+      orderImportResult.hidden = false;
+      orderImportResult.className = "result success";
+      orderImportResult.innerHTML = `✓ <strong>Success:</strong> Imported ${data.inserted} new Amazon orders (${data.updated} updated). Customer selections on website are now strictly validated!`;
+      btnClearOrderFile.click();
+      await refreshAll();
+    } catch {
+      orderImportResult.hidden = false;
+      orderImportResult.className = "result error";
+      orderImportResult.textContent = "Network error. Please try again.";
+    } finally {
+      btnImportOrders.disabled = false;
+      importOrdersBtnLabel.textContent = "Confirm & Import Verified Orders";
+    }
+  });
+}
+
+if (btnRefreshOrders) {
+  btnRefreshOrders.addEventListener("click", refreshOrders);
+}
+
+if (searchOrdersInput) {
+  let searchOrdersTimeout;
+  searchOrdersInput.addEventListener("input", () => {
+    clearTimeout(searchOrdersTimeout);
+    searchOrdersTimeout = setTimeout(refreshOrders, 300);
+  });
+}
+
 tabs.forEach((tab) => {
   tab.addEventListener("click", async () => {
     activeStatus = tab.dataset.status;
@@ -440,3 +743,4 @@ tabs.forEach((tab) => {
 
 refreshAll();
 setInterval(refreshAll, 10000);
+

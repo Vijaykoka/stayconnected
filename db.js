@@ -6,6 +6,7 @@ const ICCID_DB = path.join(DATA_DIR, "iccids.json");
 const REQUESTS_DB = path.join(DATA_DIR, "topup-requests.json");
 const CONFIG_DB = path.join(DATA_DIR, "config.json");
 const NOTIFICATION_DB = path.join(DATA_DIR, "activation-notifications.json");
+const AMAZON_ORDERS_DB = path.join(DATA_DIR, "amazon-orders.json");
 
 let pgPool = null;
 
@@ -56,8 +57,23 @@ async function initDb() {
           submitted_at TIMESTAMPTZ DEFAULT NOW()
         );
 
+        CREATE TABLE IF NOT EXISTS amazon_orders (
+          order_id VARCHAR(64) PRIMARY KEY,
+          network VARCHAR(64) NOT NULL,
+          top_up_value VARCHAR(32) NOT NULL,
+          item_title VARCHAR(255),
+          sku VARCHAR(128),
+          item_price VARCHAR(32),
+          source VARCHAR(64) DEFAULT 'csv_upload',
+          status VARCHAR(32) DEFAULT 'unclaimed',
+          claimed_iccid VARCHAR(32),
+          claimed_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+
         CREATE INDEX IF NOT EXISTS idx_sims_order_id ON sims(order_id);
         CREATE INDEX IF NOT EXISTS idx_requests_order_id ON topup_requests(amazon_order_id);
+        CREATE INDEX IF NOT EXISTS idx_amazon_orders_status ON amazon_orders(status);
       `);
     } finally {
       client.release();
@@ -355,6 +371,181 @@ async function getInventory(status, search) {
     .sort((a, b) => String(b.lastActivityAt || b.createdAt).localeCompare(String(a.lastActivityAt || a.createdAt)));
 }
 
+// 8. Amazon Orders Management
+async function getAmazonOrder(orderId) {
+  const normId = String(orderId || "").trim();
+  if (pgPool) {
+    const res = await pgPool.query("SELECT * FROM amazon_orders WHERE order_id = $1 LIMIT 1", [normId]);
+    if (res.rows.length === 0) return null;
+    const r = res.rows[0];
+    return {
+      orderId: r.order_id,
+      network: r.network,
+      topUpValue: r.top_up_value,
+      itemTitle: r.item_title,
+      sku: r.sku,
+      itemPrice: r.item_price,
+      source: r.source,
+      status: r.status,
+      claimedIccid: r.claimed_iccid,
+      claimedAt: r.claimed_at,
+      createdAt: r.created_at
+    };
+  }
+  const db = await readJson(AMAZON_ORDERS_DB, { orders: [] });
+  return db.orders.find((o) => o.orderId === normId) || null;
+}
+
+async function bulkInsertAmazonOrders(newOrders) {
+  if (!Array.isArray(newOrders) || newOrders.length === 0) {
+    return { inserted: 0, updated: 0, total: 0 };
+  }
+
+  if (pgPool) {
+    const client = await pgPool.connect();
+    let inserted = 0;
+    try {
+      await client.query("BEGIN");
+      for (const ord of newOrders) {
+        const orderId = String(ord.orderId || "").trim();
+        if (!orderId) continue;
+        const res = await client.query(
+          `INSERT INTO amazon_orders (order_id, network, top_up_value, item_title, sku, item_price, source, status, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 'unclaimed', NOW())
+           ON CONFLICT (order_id) DO UPDATE SET
+             network = EXCLUDED.network,
+             top_up_value = EXCLUDED.top_up_value,
+             item_title = COALESCE(EXCLUDED.item_title, amazon_orders.item_title),
+             sku = COALESCE(EXCLUDED.sku, amazon_orders.sku),
+             item_price = COALESCE(EXCLUDED.item_price, amazon_orders.item_price)
+           RETURNING (xmax = 0) AS is_new`,
+          [
+            orderId,
+            String(ord.network || "").trim().toUpperCase(),
+            String(ord.topUpValue || "").trim(),
+            ord.itemTitle || "",
+            ord.sku || "",
+            ord.itemPrice || "",
+            ord.source || "csv_upload"
+          ]
+        );
+        if (res.rows[0] && res.rows[0].is_new) inserted++;
+      }
+      await client.query("COMMIT");
+      const countRes = await client.query("SELECT COUNT(*) AS total FROM amazon_orders");
+      return { inserted, updated: newOrders.length - inserted, total: parseInt(countRes.rows[0].total, 10) };
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  // Local JSON implementation
+  const db = await readJson(AMAZON_ORDERS_DB, { orders: [] });
+  const map = new Map();
+  for (const o of db.orders) {
+    map.set(o.orderId, o);
+  }
+
+  let inserted = 0;
+  let updated = 0;
+  for (const ord of newOrders) {
+    const orderId = String(ord.orderId || "").trim();
+    if (!orderId) continue;
+    const existing = map.get(orderId);
+    if (existing) {
+      existing.network = String(ord.network || existing.network).trim().toUpperCase();
+      existing.topUpValue = String(ord.topUpValue || existing.topUpValue).trim();
+      if (ord.itemTitle) existing.itemTitle = ord.itemTitle;
+      if (ord.sku) existing.sku = ord.sku;
+      if (ord.itemPrice) existing.itemPrice = ord.itemPrice;
+      updated++;
+    } else {
+      const entry = {
+        orderId,
+        network: String(ord.network || "").trim().toUpperCase(),
+        topUpValue: String(ord.topUpValue || "").trim(),
+        itemTitle: ord.itemTitle || "",
+        sku: ord.sku || "",
+        itemPrice: ord.itemPrice || "",
+        source: ord.source || "csv_upload",
+        status: "unclaimed",
+        claimedIccid: null,
+        claimedAt: null,
+        createdAt: new Date().toISOString()
+      };
+      map.set(orderId, entry);
+      inserted++;
+    }
+  }
+
+  const updatedList = Array.from(map.values());
+  await writeJson(AMAZON_ORDERS_DB, { orders: updatedList });
+  return { inserted, updated, total: updatedList.length };
+}
+
+async function markAmazonOrderClaimed(orderId, iccid) {
+  const normId = String(orderId || "").trim();
+  const now = new Date().toISOString();
+  if (pgPool) {
+    await pgPool.query(
+      `UPDATE amazon_orders
+       SET status = 'claimed', claimed_iccid = $1, claimed_at = $2
+       WHERE order_id = $3`,
+      [iccid, now, normId]
+    );
+    return;
+  }
+  const db = await readJson(AMAZON_ORDERS_DB, { orders: [] });
+  const ord = db.orders.find((o) => o.orderId === normId);
+  if (ord) {
+    ord.status = "claimed";
+    ord.claimedIccid = iccid;
+    ord.claimedAt = now;
+    await writeJson(AMAZON_ORDERS_DB, db);
+  }
+}
+
+async function getAmazonOrdersList(search) {
+  if (pgPool) {
+    let query = "SELECT * FROM amazon_orders WHERE 1=1";
+    const params = [];
+    if (search) {
+      params.push(`%${search}%`);
+      query += ` AND (order_id ILIKE $1 OR network ILIKE $1 OR item_title ILIKE $1 OR sku ILIKE $1)`;
+    }
+    query += " ORDER BY created_at DESC LIMIT 500";
+    const res = await pgPool.query(query, params);
+    return res.rows.map((r) => ({
+      orderId: r.order_id,
+      network: r.network,
+      topUpValue: r.top_up_value,
+      itemTitle: r.item_title,
+      sku: r.sku,
+      itemPrice: r.item_price,
+      source: r.source,
+      status: r.status,
+      claimedIccid: r.claimed_iccid,
+      claimedAt: r.claimed_at,
+      createdAt: r.created_at
+    }));
+  }
+  const db = await readJson(AMAZON_ORDERS_DB, { orders: [] });
+  let list = db.orders;
+  if (search) {
+    const s = search.toLowerCase();
+    list = list.filter((o) =>
+      o.orderId.toLowerCase().includes(s) ||
+      (o.network && o.network.toLowerCase().includes(s)) ||
+      (o.itemTitle && o.itemTitle.toLowerCase().includes(s)) ||
+      (o.sku && o.sku.toLowerCase().includes(s))
+    );
+  }
+  return list.sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+}
+
 module.exports = {
   initDb,
   getSimByIccid,
@@ -364,6 +555,10 @@ module.exports = {
   getSummary,
   getRequests,
   getInventory,
+  getAmazonOrder,
+  bulkInsertAmazonOrders,
+  markAmazonOrderClaimed,
+  getAmazonOrdersList,
   readJson,
   CONFIG_DB
 };

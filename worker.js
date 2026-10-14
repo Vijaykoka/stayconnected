@@ -67,6 +67,7 @@ async function handleApiRequest(request, env, url) {
         iccid: res.iccid,
         status: res.status || "available",
         network: res.network || "",
+        lastTopUpValue: res.last_top_up_value || "",
         message: "ICCID Verified"
       });
     }
@@ -78,6 +79,56 @@ async function handleApiRequest(request, env, url) {
       status: "available",
       message: "ICCID Verified"
     });
+  }
+
+  // 2b. GET /api/validate-order
+  if (request.method === "GET" && path === "/api/validate-order") {
+    const rawOrderId = url.searchParams.get("orderId") || "";
+    const orderId = rawOrderId.trim().toUpperCase();
+
+    if (!/^\d{3}-\d{7}-\d{7}$/.test(orderId)) {
+      return jsonResponse({
+        ok: false,
+        code: "INVALID_ORDER_ID_FORMAT",
+        message: "Enter a valid Amazon order ID in the format 123-1234567-1234567."
+      }, 400);
+    }
+
+    if (env.DB) {
+      const checkReq = await env.DB.prepare("SELECT id FROM topup_requests WHERE amazon_order_id = ?").bind(orderId).first();
+      const order = await env.DB.prepare("SELECT * FROM amazon_orders WHERE order_id = ?").bind(orderId).first().catch(() => null);
+
+      if (checkReq || (order && order.status === "claimed")) {
+        return jsonResponse({
+          ok: true,
+          found: true,
+          claimed: true,
+          orderId,
+          network: order ? order.network : null,
+          topUpValue: order ? order.top_up_value : null,
+          message: "This Amazon Order ID has already been redeemed for a SIM top-up."
+        });
+      }
+
+      if (!order) {
+        return jsonResponse({ ok: true, found: false, orderId, message: "Order format valid." });
+      }
+
+      return jsonResponse({
+        ok: true,
+        found: true,
+        claimed: false,
+        orderId: order.order_id,
+        network: order.network,
+        topUpValue: order.top_up_value,
+        itemTitle: order.item_title || "",
+        sku: order.sku || "",
+        itemPrice: order.item_price || "",
+        message: `Verified Amazon Order: ${order.network} ${order.top_up_value}`
+      });
+    }
+
+    return jsonResponse({ ok: true, found: false, orderId, message: "Order format valid." });
   }
 
   // 3. POST /api/topup-request
@@ -130,17 +181,51 @@ async function handleApiRequest(request, env, url) {
         }, 409);
       }
 
+      // Check registered order verification
+      const regOrder = await env.DB.prepare("SELECT * FROM amazon_orders WHERE order_id = ?").bind(orderId).first().catch(() => null);
+      if (regOrder) {
+        if (regOrder.status === "claimed") {
+          return jsonResponse({
+            ok: false,
+            code: "ORDER_ALREADY_CLAIMED",
+            message: `This Amazon Order ID has already been redeemed${regOrder.claimed_iccid ? ` for SIM ${regOrder.claimed_iccid}` : ""}.`
+          }, 409);
+        }
+        if (regOrder.network && regOrder.network.toUpperCase() !== networkName.toUpperCase()) {
+          return jsonResponse({
+            ok: false,
+            code: "ORDER_NETWORK_MISMATCH",
+            message: `Validation Error: Amazon Order ${orderId} was purchased for ${regOrder.network}, but you selected ${networkName}. Please select ${regOrder.network}.`
+          }, 400);
+        }
+        if (regOrder.top_up_value && regOrder.top_up_value !== topUpValue) {
+          return jsonResponse({
+            ok: false,
+            code: "ORDER_VALUE_MISMATCH",
+            message: `Validation Error: Amazon Order ${orderId} was purchased for ${regOrder.top_up_value}, but you selected ${topUpValue}. Please select ${regOrder.top_up_value}.`
+          }, 400);
+        }
+      }
+
       const requestId = `REQ-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
       const now = new Date().toISOString();
 
-      await env.DB.batch([
+      const batchStatements = [
         env.DB.prepare(
           "INSERT INTO topup_requests (id, amazon_order_id, sim_iccid, network_name, top_up_value, iccid_verified, customer_email, submitted_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)"
         ).bind(requestId, orderId, iccid, networkName, topUpValue, email, now),
         env.DB.prepare(
           "UPDATE sims SET status = 'activated', order_id = ?, network = ?, last_top_up_value = ?, customer_email = ?, last_activity_at = ? WHERE iccid = ?"
         ).bind(orderId, networkName, topUpValue, email, now, iccid)
-      ]);
+      ];
+
+      if (regOrder) {
+        batchStatements.push(
+          env.DB.prepare("UPDATE amazon_orders SET status = 'claimed', claimed_iccid = ?, claimed_at = ? WHERE order_id = ?").bind(iccid, now, orderId)
+        );
+      }
+
+      await env.DB.batch(batchStatements);
     }
 
     const notification = {
@@ -286,6 +371,85 @@ async function handleApiRequest(request, env, url) {
     });
   }
 
+  // 10. POST /api/admin/orders-bulk
+  if (request.method === "POST" && path === "/api/admin/orders-bulk") {
+    if (!checkAuth(request, env)) {
+      return jsonResponse({ ok: false, message: "Unauthorized. Admin password required." }, 401);
+    }
+    const payload = await request.json().catch(() => ({}));
+    const rawOrders = Array.isArray(payload.orders) ? payload.orders : [];
+    if (rawOrders.length === 0) {
+      return jsonResponse({ ok: false, message: "No Amazon orders provided." }, 400);
+    }
+
+    if (env.DB) {
+      let added = 0;
+      let updated = 0;
+      for (const ord of rawOrders) {
+        const orderId = String(ord.orderId || "").trim().toUpperCase();
+        if (!/^\d{3}-\d{7}-\d{7}$/.test(orderId)) continue;
+        const net = String(ord.network || "").trim().toUpperCase();
+        const topUp = String(ord.topUpValue || "").trim();
+        const check = await env.DB.prepare("SELECT order_id FROM amazon_orders WHERE order_id = ?").bind(orderId).first();
+        if (check) {
+          await env.DB.prepare(
+            "UPDATE amazon_orders SET network = ?, top_up_value = ?, item_title = COALESCE(?, item_title), sku = COALESCE(?, sku) WHERE order_id = ?"
+          ).bind(net, topUp, ord.itemTitle || null, ord.sku || null, orderId).run();
+          updated++;
+        } else {
+          await env.DB.prepare(
+            "INSERT INTO amazon_orders (order_id, network, top_up_value, item_title, sku, item_price, source, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'unclaimed', ?)"
+          ).bind(orderId, net, topUp, ord.itemTitle || null, ord.sku || null, ord.itemPrice || null, ord.source || "csv_upload", new Date().toISOString()).run();
+          added++;
+        }
+      }
+      return jsonResponse({ ok: true, added, updated, total: added });
+    }
+
+    return jsonResponse({ ok: true, added: rawOrders.length, updated: 0, total: rawOrders.length });
+  }
+
+  // 11. GET /api/admin/orders
+  if (request.method === "GET" && path === "/api/admin/orders") {
+    if (!checkAuth(request, env)) {
+      return jsonResponse({ ok: false, message: "Unauthorized. Admin password required." }, 401);
+    }
+    if (env.DB) {
+      const search = url.searchParams.get("search") || "";
+      let query = "SELECT order_id AS orderId, network, top_up_value AS topUpValue, item_title AS itemTitle, sku, item_price AS itemPrice, source, status, claimed_iccid AS claimedIccid, claimed_at AS claimedAt, created_at AS createdAt FROM amazon_orders";
+      let results;
+      if (search) {
+        query += " WHERE order_id LIKE ? OR network LIKE ? OR sku LIKE ? ORDER BY created_at DESC LIMIT 200";
+        const pattern = `%${search}%`;
+        results = (await env.DB.prepare(query).bind(pattern, pattern, pattern).all()).results;
+      } else {
+        query += " ORDER BY created_at DESC LIMIT 200";
+        results = (await env.DB.prepare(query).all()).results;
+      }
+      return jsonResponse({ ok: true, orders: results || [] });
+    }
+    return jsonResponse({ ok: true, orders: [] });
+  }
+
+  // 12. POST /api/webhooks/amazon-email
+  if (request.method === "POST" && path === "/api/webhooks/amazon-email") {
+    const payload = await request.json().catch(() => ({}));
+    const text = typeof payload === "string" ? payload : (payload.body || payload.text || payload.raw || JSON.stringify(payload));
+    const parsed = parseAmazonEmail(text);
+
+    if (!parsed || !parsed.orderId) {
+      return jsonResponse({ ok: false, message: "Could not parse Amazon Order ID from email body." }, 400);
+    }
+
+    if (env.DB) {
+      await env.DB.prepare(
+        "INSERT INTO amazon_orders (order_id, network, top_up_value, item_title, sku, item_price, source, status, created_at) VALUES (?, ?, ?, ?, ?, ?, 'email_alert', 'unclaimed', ?) ON CONFLICT(order_id) DO UPDATE SET network=excluded.network, top_up_value=excluded.top_up_value"
+      ).bind(parsed.orderId, parsed.network, parsed.topUpValue, parsed.itemTitle, parsed.sku, parsed.itemPrice, new Date().toISOString()).run();
+    }
+
+    return jsonResponse({ ok: true, message: `Amazon Order ${parsed.orderId} registered from email alert.`, order: parsed });
+  }
+
   // Sample CSV
   if (request.method === "GET" && path === "/api/admin/sample-csv") {
     const sample = "iccid,batchId,network\r\n8914800000000000001,AMZ-BATCH-001,giffgaff\r\n8914800000000000002,AMZ-BATCH-001,O2\r\n8914800000000000003,AMZ-BATCH-001,Vodafone\r\n";
@@ -298,6 +462,49 @@ async function handleApiRequest(request, env, url) {
   }
 
   return jsonResponse({ ok: false, message: "Route not found." }, 404);
+}
+
+function parseAmazonEmail(rawText) {
+  const text = String(rawText || "");
+  const orderMatch = text.match(/\b(\d{3}-\d{7}-\d{7})\b/);
+  if (!orderMatch) return null;
+  const orderId = orderMatch[1];
+
+  let network = "";
+  if (/\b(?:O2|O 2)\b/i.test(text)) network = "O2";
+  else if (/\b(?:EE|Everything Everywhere)\b/i.test(text)) network = "EE";
+  else if (/\b(?:THREE|3 UK|Three UK)\b/i.test(text)) network = "THREE";
+
+  let topUpValue = "";
+  const priceMatch = text.match(/(?:£|GBP\s*|price[:\s]*£?)\s*(10|15|20|30|35)(?:\.00)?\b/i) ||
+                     text.match(/\b(10|15|20|30|35)\s*(?:pounds|gbp|top\s*up)/i);
+  if (priceMatch) {
+    topUpValue = `£${priceMatch[1]}`;
+  } else {
+    if (text.includes("£35") || text.includes("35.00")) topUpValue = "£35";
+    else if (text.includes("£30") || text.includes("30.00")) topUpValue = "£30";
+    else if (text.includes("£20") || text.includes("20.00")) topUpValue = "£20";
+    else if (text.includes("£15") || text.includes("15.00")) topUpValue = "£15";
+    else if (text.includes("£10") || text.includes("10.00")) topUpValue = "£10";
+  }
+
+  let itemTitle = "";
+  const itemMatch = text.match(/(?:Item(?: Name)?|Title|Product)[:\s]+([^\r\n]+)/i);
+  if (itemMatch) itemTitle = itemMatch[1].trim();
+
+  let sku = "";
+  const skuMatch = text.match(/SKU[:\s]+([^\r\n\s]+)/i);
+  if (skuMatch) sku = skuMatch[1].trim();
+
+  return {
+    orderId,
+    network,
+    topUpValue,
+    itemTitle,
+    sku,
+    itemPrice: topUpValue ? topUpValue.replace("£", "") : "",
+    source: "email_alert"
+  };
 }
 
 export default {
@@ -327,5 +534,22 @@ export default {
     }
 
     return new Response("Not found", { status: 404 });
+  },
+
+  // Cloudflare Email Routing native handler
+  // Intercepts emails sent to @yourdomain.com automatically
+  async email(message, env, ctx) {
+    try {
+      const rawText = await new Response(message.raw).text();
+      const parsed = parseAmazonEmail(rawText);
+      if (parsed && parsed.orderId && env.DB) {
+        await env.DB.prepare(
+          "INSERT INTO amazon_orders (order_id, network, top_up_value, item_title, sku, item_price, source, status, created_at) VALUES (?, ?, ?, ?, ?, ?, 'email_alert', 'unclaimed', ?) ON CONFLICT(order_id) DO UPDATE SET network=excluded.network, top_up_value=excluded.top_up_value"
+        ).bind(parsed.orderId, parsed.network, parsed.topUpValue, parsed.itemTitle, parsed.sku, parsed.itemPrice, new Date().toISOString()).run();
+      }
+    } catch (err) {
+      console.error("Cloudflare email routing parser error:", err);
+    }
   }
 };
+

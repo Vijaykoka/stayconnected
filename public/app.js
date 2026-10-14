@@ -5,9 +5,12 @@ const networkSelect = document.querySelector("#networkName");
 const topUpValueSelect = document.querySelector("#topUpValue");
 const btnValidateIccid = document.querySelector("#btn-validate-iccid");
 const iccidStatusBox = document.querySelector("#iccid-status-box");
+const orderStatusBox = document.querySelector("#order-status-box");
 const receiptCard = document.querySelector("#receipt-card");
 const btnSubmitAnother = document.querySelector("#btn-submit-another");
 const urlParams = new URLSearchParams(window.location.search);
+
+let verifiedAmazonOrder = null;
 
 const INVALID_ICCID_MSG = "Invalid ICCID. This SIM card is not registered in our database and does not belong to us.";
 
@@ -162,6 +165,55 @@ async function checkIccid() {
   }
 }
 
+// Live Amazon Order Check against Verified Orders Database
+async function checkOrderId() {
+  clearFieldErrors();
+  const raw = String(form.elements.orderId.value || "").trim().toUpperCase();
+
+  if (!raw || !/^\d{3}-\d{7}-\d{7}$/.test(raw)) {
+    orderStatusBox.hidden = true;
+    verifiedAmazonOrder = null;
+    return;
+  }
+
+  orderStatusBox.hidden = false;
+  orderStatusBox.className = "iccid-status-pill loading";
+  orderStatusBox.textContent = "Checking Amazon order verification...";
+
+  try {
+    const res = await fetch(`/api/validate-order?orderId=${encodeURIComponent(raw)}`);
+    const data = await res.json();
+
+    if (data.claimed) {
+      orderStatusBox.className = "iccid-status-pill error";
+      orderStatusBox.textContent = data.message || "This Amazon Order ID has already been redeemed.";
+      showFieldError("orderId", data.message || "Order already redeemed.");
+      verifiedAmazonOrder = null;
+      return;
+    }
+
+    if (data.found && data.network && data.topUpValue) {
+      verifiedAmazonOrder = data;
+      orderStatusBox.className = "iccid-status-pill success";
+      orderStatusBox.innerHTML = `✓ <strong>Verified Amazon Purchase:</strong> ${data.network} ${data.topUpValue} (Selections Locked)`;
+
+      // Auto-set & lock network and top-up
+      networkSelect.value = data.network;
+      updateTopUpOptions(data.network, data.topUpValue);
+      return;
+    }
+
+    // Valid format, but not yet pre-loaded in DB (e.g. fresh order)
+    orderStatusBox.hidden = true;
+    verifiedAmazonOrder = null;
+  } catch {
+    orderStatusBox.hidden = true;
+  }
+}
+
+form.elements.orderId.addEventListener("blur", checkOrderId);
+form.elements.orderId.addEventListener("change", checkOrderId);
+
 btnValidateIccid.addEventListener("click", checkIccid);
 form.elements.iccid.addEventListener("blur", () => {
   const digits = String(form.elements.iccid.value || "").replace(/\D/g, "");
@@ -214,8 +266,24 @@ form.addEventListener("submit", async (event) => {
     hasError = true;
   }
 
+  // Client-side mismatch prevention against verified Amazon purchase
+  if (verifiedAmazonOrder) {
+    if (verifiedAmazonOrder.network && verifiedAmazonOrder.network.toUpperCase() !== networkName.toUpperCase()) {
+      showFieldError("networkName", `Purchased for ${verifiedAmazonOrder.network}, not ${networkName}.`);
+      setResult("error", `Validation Mismatch: Amazon Order was purchased for ${verifiedAmazonOrder.network}. Please select ${verifiedAmazonOrder.network}.`);
+      hasError = true;
+    }
+    if (verifiedAmazonOrder.topUpValue && verifiedAmazonOrder.topUpValue !== topUpValue) {
+      showFieldError("topUpValue", `Purchased for ${verifiedAmazonOrder.topUpValue}, not ${topUpValue}.`);
+      setResult("error", `Validation Mismatch: Amazon Order was purchased for ${verifiedAmazonOrder.topUpValue}, but you selected ${topUpValue}.`);
+      hasError = true;
+    }
+  }
+
   if (hasError) {
-    setResult("error", "Please complete all mandatory fields highlighted above.");
+    if (!result.textContent) {
+      setResult("error", "Please complete all mandatory fields highlighted above.");
+    }
     return;
   }
 
@@ -266,10 +334,12 @@ form.addEventListener("submit", async (event) => {
 btnSubmitAnother.addEventListener("click", () => {
   form.reset();
   clearFieldErrors();
+  verifiedAmazonOrder = null;
   form.hidden = false;
   receiptCard.hidden = true;
   result.hidden = true;
   iccidStatusBox.hidden = true;
+  orderStatusBox.hidden = true;
   updateTopUpOptions("");
 });
 

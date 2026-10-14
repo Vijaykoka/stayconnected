@@ -132,6 +132,59 @@ async function validateIccidHandler(req, res) {
   });
 }
 
+// Validate Amazon Order ID against verified orders database
+async function validateOrderHandler(req, res) {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const rawOrderId = url.searchParams.get("orderId") || "";
+  const orderId = normalizeOrderId(rawOrderId);
+
+  if (!isValidAmazonOrderId(orderId)) {
+    return sendJson(res, 400, {
+      ok: false,
+      code: "INVALID_ORDER_ID_FORMAT",
+      message: "Enter a valid Amazon order ID in the format 123-1234567-1234567."
+    });
+  }
+
+  // Check if order was already submitted for top-up
+  const isUsed = await db.isOrderIdUsed(orderId);
+  const order = await db.getAmazonOrder(orderId);
+
+  if (isUsed || (order && order.status === "claimed")) {
+    return sendJson(res, 200, {
+      ok: true,
+      found: true,
+      claimed: true,
+      orderId,
+      network: order ? order.network : null,
+      topUpValue: order ? order.topUpValue : null,
+      message: "This Amazon Order ID has already been redeemed for a SIM top-up."
+    });
+  }
+
+  if (!order) {
+    return sendJson(res, 200, {
+      ok: true,
+      found: false,
+      orderId,
+      message: "Order format valid."
+    });
+  }
+
+  return sendJson(res, 200, {
+    ok: true,
+    found: true,
+    claimed: false,
+    orderId: order.orderId,
+    network: order.network,
+    topUpValue: order.topUpValue,
+    itemTitle: order.itemTitle || "",
+    sku: order.sku || "",
+    itemPrice: order.itemPrice || "",
+    message: `Verified Amazon Order: ${order.network} ${order.topUpValue}`
+  });
+}
+
 // Process Customer SIM Top-Up Request
 async function topupRequestHandler(req, res) {
   const payload = await readRequestBody(req);
@@ -194,6 +247,34 @@ async function topupRequestHandler(req, res) {
     });
   }
 
+  // Check against Verified Amazon Orders Database if pre-loaded
+  const registeredOrder = await db.getAmazonOrder(orderId);
+  if (registeredOrder) {
+    if (registeredOrder.status === "claimed") {
+      return sendJson(res, 409, {
+        ok: false,
+        code: "ORDER_ALREADY_CLAIMED",
+        message: `This Amazon Order ID has already been redeemed${registeredOrder.claimedIccid ? ` for SIM ${registeredOrder.claimedIccid}` : ""}.`
+      });
+    }
+
+    if (registeredOrder.network && registeredOrder.network.toUpperCase() !== networkName.toUpperCase()) {
+      return sendJson(res, 400, {
+        ok: false,
+        code: "ORDER_NETWORK_MISMATCH",
+        message: `Validation Error: Amazon Order ${orderId} was purchased for ${registeredOrder.network}, but you selected ${networkName}. Please select ${registeredOrder.network}.`
+      });
+    }
+
+    if (registeredOrder.topUpValue && registeredOrder.topUpValue !== topUpValue) {
+      return sendJson(res, 400, {
+        ok: false,
+        code: "ORDER_VALUE_MISMATCH",
+        message: `Validation Error: Amazon Order ${orderId} was purchased for ${registeredOrder.topUpValue}, but you selected ${topUpValue}. Please select ${registeredOrder.topUpValue}.`
+      });
+    }
+  }
+
   const now = new Date().toISOString();
   const requestId = `REQ-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
 
@@ -211,6 +292,13 @@ async function topupRequestHandler(req, res) {
 
   // Save to database
   await db.saveTopUpRequest(notification, email);
+
+  // Mark registered Amazon order as claimed
+  if (registeredOrder) {
+    await db.markAmazonOrderClaimed(orderId, iccid).catch((err) =>
+      console.warn("Could not mark order claimed:", err)
+    );
+  }
 
   // Trigger automated email notification (runs in background)
   sendTopUpNotification(notification).catch((err) =>
@@ -384,6 +472,116 @@ function sampleCsvHandler(_req, res) {
   res.end(sample);
 }
 
+function parseAmazonEmail(rawText) {
+  const text = String(rawText || "");
+  const orderMatch = text.match(/\b(\d{3}-\d{7}-\d{7})\b/);
+  if (!orderMatch) return null;
+  const orderId = orderMatch[1];
+
+  let network = "";
+  if (/\b(?:O2|O 2)\b/i.test(text)) network = "O2";
+  else if (/\b(?:EE|Everything Everywhere)\b/i.test(text)) network = "EE";
+  else if (/\b(?:THREE|3 UK|Three UK)\b/i.test(text)) network = "THREE";
+
+  let topUpValue = "";
+  const priceMatch = text.match(/(?:£|GBP\s*|price[:\s]*£?)\s*(10|15|20|30|35)(?:\.00)?\b/i) ||
+                     text.match(/\b(10|15|20|30|35)\s*(?:pounds|gbp|top\s*up)/i);
+  if (priceMatch) {
+    topUpValue = `£${priceMatch[1]}`;
+  } else {
+    if (text.includes("£35") || text.includes("35.00")) topUpValue = "£35";
+    else if (text.includes("£30") || text.includes("30.00")) topUpValue = "£30";
+    else if (text.includes("£20") || text.includes("20.00")) topUpValue = "£20";
+    else if (text.includes("£15") || text.includes("15.00")) topUpValue = "£15";
+    else if (text.includes("£10") || text.includes("10.00")) topUpValue = "£10";
+  }
+
+  let itemTitle = "";
+  const itemMatch = text.match(/(?:Item(?: Name)?|Title|Product)[:\s]+([^\r\n]+)/i);
+  if (itemMatch) itemTitle = itemMatch[1].trim();
+
+  let sku = "";
+  const skuMatch = text.match(/SKU[:\s]+([^\r\n\s]+)/i);
+  if (skuMatch) sku = skuMatch[1].trim();
+
+  return {
+    orderId,
+    network,
+    topUpValue,
+    itemTitle,
+    sku,
+    itemPrice: topUpValue ? topUpValue.replace("£", "") : "",
+    source: "email_alert"
+  };
+}
+
+async function adminBulkOrdersHandler(req, res) {
+  if (!checkAdminAuth(req)) {
+    return sendJson(res, 401, { ok: false, message: "Unauthorized. Admin password required." });
+  }
+
+  const payload = await readRequestBody(req);
+  const rawOrders = Array.isArray(payload.orders) ? payload.orders : [];
+
+  if (rawOrders.length === 0) {
+    return sendJson(res, 400, { ok: false, message: "No Amazon orders provided." });
+  }
+
+  const validOrders = [];
+  for (const ord of rawOrders) {
+    const orderId = normalizeOrderId(ord.orderId);
+    if (!isValidAmazonOrderId(orderId)) continue;
+    validOrders.push({
+      orderId,
+      network: String(ord.network || "").trim().toUpperCase(),
+      topUpValue: String(ord.topUpValue || "").trim(),
+      itemTitle: String(ord.itemTitle || ord.title || "").trim(),
+      sku: String(ord.sku || "").trim(),
+      itemPrice: String(ord.itemPrice || ord.price || "").trim(),
+      source: String(ord.source || "csv_upload").trim()
+    });
+  }
+
+  const result = await db.bulkInsertAmazonOrders(validOrders);
+  return sendJson(res, 200, {
+    ok: true,
+    message: `Processed ${validOrders.length} Amazon orders: ${result.inserted} added, ${result.updated} updated. Total: ${result.total}.`,
+    ...result
+  });
+}
+
+async function adminGetOrdersHandler(req, res) {
+  if (!checkAdminAuth(req)) {
+    return sendJson(res, 401, { ok: false, message: "Unauthorized. Admin password required." });
+  }
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const search = url.searchParams.get("search") || "";
+  const orders = await db.getAmazonOrdersList(search);
+  return sendJson(res, 200, { ok: true, orders, total: orders.length });
+}
+
+// Inbound webhook for Amazon order email alerts
+async function amazonEmailWebhookHandler(req, res) {
+  const payload = await readRequestBody(req);
+  const text = typeof payload === "string" ? payload : (payload.body || payload.text || payload.raw || JSON.stringify(payload));
+  const parsed = parseAmazonEmail(text);
+
+  if (!parsed || !parsed.orderId) {
+    return sendJson(res, 400, {
+      ok: false,
+      message: "Could not parse Amazon Order ID from email body."
+    });
+  }
+
+  const result = await db.bulkInsertAmazonOrders([parsed]);
+  return sendJson(res, 200, {
+    ok: true,
+    message: `Amazon Order ${parsed.orderId} registered from email alert.`,
+    order: parsed,
+    result
+  });
+}
+
 async function staticHandler(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const requestedPath = url.pathname === "/" ? "/index.html" : decodeURIComponent(url.pathname);
@@ -432,6 +630,9 @@ async function handleRequest(req, res) {
     if (req.method === "GET" && url.pathname === "/api/validate-iccid") {
       return validateIccidHandler(req, res);
     }
+    if (req.method === "GET" && url.pathname === "/api/validate-order") {
+      return validateOrderHandler(req, res);
+    }
     if (req.method === "POST" && (url.pathname === "/api/topup-request" || url.pathname === "/api/activate")) {
       return topupRequestHandler(req, res);
     }
@@ -440,6 +641,15 @@ async function handleRequest(req, res) {
     }
     if (req.method === "POST" && url.pathname === "/api/admin/iccid-bulk") {
       return bulkImportHandler(req, res);
+    }
+    if (req.method === "POST" && url.pathname === "/api/admin/orders-bulk") {
+      return adminBulkOrdersHandler(req, res);
+    }
+    if (req.method === "GET" && url.pathname === "/api/admin/orders") {
+      return adminGetOrdersHandler(req, res);
+    }
+    if (req.method === "POST" && url.pathname === "/api/webhooks/amazon-email") {
+      return amazonEmailWebhookHandler(req, res);
     }
     if (req.method === "GET" && url.pathname === "/api/admin/summary") {
       return summaryHandler(req, res);
