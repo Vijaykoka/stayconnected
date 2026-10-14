@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Local Test Data</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/">
+        <span class="brand-icon" aria-hidden="true">S</span>
+        <span>Stayconnected</span>
+      </a>
+      <nav aria-label="Primary">
+        <a href="/">Home</a>
+        <a href="/test-data.html">Test data</a>
+        <a href="/admin.html">Admin</a>
+      </nav>
+    </header>
+    <div class="offer-strip">
+      <span>✦</span>
+      <strong>Generated Amazon test orders and ICCIDs</strong>
+      <span>✦</span>
+    </div>
+    <main class="shell">
+      <section class="activation-panel wide" aria-labelledby="test-title">
+        <div class="brand-row">
+          <div class="brand-mark" aria-hidden="true">S</div>
+          <div>
+            <p class="eyebrow">Stayconnected testing</p>
+            <h1 id="test-title">Amazon orders and ICCIDs</h1>
+          </div>
+        </div>
+
+        <div class="test-actions">
+          <a class="link-button" href="/">Open activation form</a>
+          <a class="link-button secondary" href="/admin.html">Open admin</a>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Amazon Order ID</th>
+                <th>ICCID</th>
+                <th>Network</th>
+                <th>Top-Up Value</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="rows">
+              <tr>
+                <td colspan="5">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="/test-data.js"></script>
+  </body>
+</html>

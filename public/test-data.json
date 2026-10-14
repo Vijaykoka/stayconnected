@@ -1,0 +1,166 @@
+{
+  "generatedAt": "2026-10-14T16:39:41.348Z",
+  "note": "Local testing only. Do not expose this file in production.",
+  "rows": [
+    {
+      "ecommerce": "Amazon",
+      "orderId": "790-2357194-3759311",
+      "iccid": "8944115559845100001",
+      "networkName": "giffgaff",
+      "topUpValue": "£10",
+      "batchId": "AMZ-BATCH-1791995981349"
+    },
+    {
+      "ecommerce": "Amazon",
+      "orderId": "280-6801636-5628221",
+      "iccid": "8944119885789200002",
+      "networkName": "O2",
+      "topUpValue": "£15",
+      "batchId": "AMZ-BATCH-1791995981349"
+    },
+    {
+      "ecommerce": "Amazon",
+      "orderId": "102-8399349-3931219",
+      "iccid": "8944115718416100003",
+      "networkName": "Vodafone",
+      "topUpValue": "£20",
+      "batchId": "AMZ-BATCH-1791995981349"
+    },
+    {
+      "ecommerce": "Amazon",
+      "orderId": "593-4810424-8952587",
+      "iccid": "8944110652940200004",
+      "networkName": "EE",
+      "topUpValue": "£25",
+      "batchId": "AMZ-BATCH-1791995981349"
+    },
+    {
+      "ecommerce": "Amazon",
+      "orderId": "759-8135299-3619112",
+      "iccid": "8944111373023900005",
+      "networkName": "Three",
+      "topUpValue": "£30",
+      "batchId": "AMZ-BATCH-1791995981349"
+    },
+    {
+      "ecommerce": "Amazon",
+      "orderId": "637-0401072-3891747",
+      "iccid": "8944116091104400006",
+      "networkName": "Lebara",
+      "topUpValue": "£50",
+      "batchId": "AMZ-BATCH-1791995981349"
+    },
+    {
+      "ecommerce": "Amazon",
+      "orderId": "262-7779255-4092131",
+      "iccid": "8944112475428400007",
+      "networkName": "giffgaff",
+      "topUpValue": "£10",
+      "batchId": "AMZ-BATCH-1791995981349"
+    },
+    {
+      "ecommerce": "Amazon",
+      "orderId": "920-2716791-4317786",
+      "iccid": "8944112173465300008",
+      "networkName": "O2",
+      "topUpValue": "£15",
+      "batchId": "AMZ-BATCH-1791995981349"
+    },
+    {
+      "ecommerce": "Amazon",
+      "orderId": "158-5612162-8607690",
+      "iccid": "8944115340466900009",
+      "networkName": "Vodafone",
+      "topUpValue": "£20",
+      "batchId": "AMZ-BATCH-1791995981349"
+    },
+    {
+      "ecommerce": "Amazon",
+      "orderId": "672-0447373-0263415",
+      "iccid": "8944116084794200010",
+      "networkName": "EE",
+      "topUpValue": "£25",
+      "batchId": "AMZ-BATCH-1791995981349"
+    },
+    {
+      "ecommerce": "Amazon",
+      "orderId": "846-6423651-7460544",
+      "iccid": "8944112556049500011",
+      "networkName": "Three",
+      "topUpValue": "£30",
+      "batchId": "AMZ-BATCH-1791995981349"
+    },
+    {
+      "ecommerce": "Amazon",
+      "orderId": "935-1082920-8092085",
+      "iccid": "8944111742065100012",
+      "networkName": "Lebara",
+      "topUpValue": "£50",
+      "batchId": "AMZ-BATCH-1791995981349"
+    },
+    {
+      "ecommerce": "Amazon",
+      "orderId": "203-1560141-6676225",
+      "iccid": "8944111499259100013",
+      "networkName": "giffgaff",
+      "topUpValue": "£10",
+      "batchId": "AMZ-BATCH-1791995981349"
+    },
+    {
+      "ecommerce": "Amazon",
+      "orderId": "692-2194869-6127224",
+      "iccid": "8944119521810400014",
+      "networkName": "O2",
+      "topUpValue": "£15",
+      "batchId": "AMZ-BATCH-1791995981349"
+    },
+    {
+      "ecommerce": "Amazon",
+      "orderId": "701-8856398-0205989",
+      "iccid": "8944119099533100015",
+      "networkName": "Vodafone",
+      "topUpValue": "£20",
+      "batchId": "AMZ-BATCH-1791995981349"
+    },
+    {
+      "ecommerce": "Amazon",
+      "orderId": "208-5509635-4095759",
+      "iccid": "8944118929308000016",
+      "networkName": "EE",
+      "topUpValue": "£25",
+      "batchId": "AMZ-BATCH-1791995981349"
+    },
+    {
+      "ecommerce": "Amazon",
+      "orderId": "596-4650706-8968502",
+      "iccid": "8944116391065200017",
+      "networkName": "Three",
+      "topUpValue": "£30",
+      "batchId": "AMZ-BATCH-1791995981349"
+    },
+    {
+      "ecommerce": "Amazon",
+      "orderId": "467-9941940-8284365",
+      "iccid": "8944113452074500018",
+      "networkName": "Lebara",
+      "topUpValue": "£50",
+      "batchId": "AMZ-BATCH-1791995981349"
+    },
+    {
+      "ecommerce": "Amazon",
+      "orderId": "984-5856565-4409315",
+      "iccid": "8944119398053800019",
+      "networkName": "giffgaff",
+      "topUpValue": "£10",
+      "batchId": "AMZ-BATCH-1791995981349"
+    },
+    {
+      "ecommerce": "Amazon",
+      "orderId": "692-6202917-1221948",
+      "iccid": "8944119636720600020",
+      "networkName": "O2",
+      "topUpValue": "£15",
+      "batchId": "AMZ-BATCH-1791995981349"
+    }
+  ]
+}

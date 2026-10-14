@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SIM Verification &amp; Top-Up Request</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/">
+        <span class="brand-icon" aria-hidden="true">S</span>
+        <span>Stayconnected</span>
+      </a>
+      <nav aria-label="Primary">
+        <a href="/">Home</a>
+        <a href="/test-data.html">Test data</a>
+        <a href="/admin.html">Admin</a>
+      </nav>
+    </header>
+    <div class="offer-strip">
+      <span>✦</span>
+      <strong>Fast &amp; Secure Amazon SIM Verification and Top-Up Portal</strong>
+      <span>✦</span>
+    </div>
+    <main class="shell">
+      <section class="activation-panel" aria-labelledby="page-title">
+        <div class="brand-row">
+          <div class="brand-mark" aria-hidden="true">S</div>
+          <div>
+            <p class="eyebrow">Amazon SIM Services</p>
+            <h1 id="page-title">SIM Top-Up Request</h1>
+          </div>
+        </div>
+
+        <p class="section-desc" style="margin-top: -12px; margin-bottom: 20px;">
+          Please enter your Amazon order details and SIM ICCID below to verify your card and submit your top-up request.
+        </p>
+
+        <form id="topup-form" class="activation-form" novalidate>
+          <!-- Field 1: Amazon Order ID (Mandatory) -->
+          <label id="label-orderId">
+            <span>Amazon Order ID <span class="required-star">*</span></span>
+            <input
+              id="orderId"
+              name="orderId"
+              autocomplete="off"
+              inputmode="text"
+              placeholder="123-1234567-1234567"
+              required
+            >
+            <small class="field-error-msg" id="err-orderId" hidden></small>
+          </label>
+
+          <!-- Field 2: SIM Card ICCID (Mandatory; must match database) -->
+          <label id="label-iccid">
+            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+              <span>SIM Card ICCID <span class="required-star">*</span></span>
+              <button type="button" id="btn-validate-iccid" class="link-btn-text" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:12px;font-weight:700;padding:0;">Verify ICCID</button>
+            </div>
+            <input
+              id="iccid"
+              name="iccid"
+              autocomplete="off"
+              inputmode="numeric"
+              placeholder="8944000000000000001 (18-22 digits)"
+              required
+            >
+            <small class="field-error-msg" id="err-iccid" hidden></small>
+          </label>
+
+          <!-- Realtime ICCID Verification Box -->
+          <div id="iccid-status-box" class="iccid-status-pill" hidden></div>
+
+          <!-- Field 3: Network Name (Mandatory) -->
+          <label id="label-networkName">
+            <span>Network Name <span class="required-star">*</span></span>
+            <select id="networkName" name="networkName" required>
+              <option value="">-- Select your SIM network --</option>
+            </select>
+            <small class="field-error-msg" id="err-networkName" hidden></small>
+          </label>
+
+          <!-- Custom Network Name input (if Other is selected) -->
+          <div id="custom-network-container" hidden>
+            <label id="label-customNetwork">
+              <span>Specify Network Name <span class="required-star">*</span></span>
+              <input id="customNetwork" placeholder="e.g. giffgaff, O2, Vodafone">
+            </label>
+          </div>
+
+          <!-- Field 4: Top-up value (Mandatory; dropdown) -->
+          <label id="label-topUpValue">
+            <span>Top-Up Value <span class="required-star">*</span></span>
+            <select id="topUpValue" name="topUpValue" required>
+              <option value="">-- Select top-up value --</option>
+            </select>
+            <small class="field-error-msg" id="err-topUpValue" hidden></small>
+          </label>
+
+          <!-- Optional Email for confirmation -->
+          <label id="label-email">
+            <span>Customer Email <span style="font-weight: normal; font-size: 12px; color: var(--muted);">(Optional for updates)</span></span>
+            <input
+              id="email"
+              name="email"
+              autocomplete="email"
+              inputmode="email"
+              placeholder="your-name@example.com"
+            >
+          </label>
+
+          <button id="submit-button" type="submit" style="margin-top: 6px;">
+            <span class="button-icon" aria-hidden="true">+</span>
+            <span>Submit Top-Up Request</span>
+          </button>
+        </form>
+
+        <!-- Error / Result Banner -->
+        <div id="result" class="result" role="status" aria-live="polite" hidden></div>
+
+        <!-- Receipt Card for Successful Submission -->
+        <div id="receipt-card" class="receipt-card" hidden>
+          <div class="receipt-header">
+            <span class="receipt-check">✓</span>
+            <div>
+              <h3>New SIM Top-Up Request Submitted</h3>
+              <p>Your request has been verified and recorded.</p>
+            </div>
+          </div>
+          <div class="receipt-body">
+            <div class="receipt-row">
+              <span class="receipt-label">Amazon Order ID</span>
+              <span class="receipt-value" id="receipt-orderId">-</span>
+            </div>
+            <div class="receipt-row">
+              <span class="receipt-label">SIM ICCID</span>
+              <span class="receipt-value" id="receipt-iccid">-</span>
+            </div>
+            <div class="receipt-row">
+              <span class="receipt-label">Network Name</span>
+              <span class="receipt-value" id="receipt-network">-</span>
+            </div>
+            <div class="receipt-row">
+              <span class="receipt-label">Top-Up Value</span>
+              <span class="receipt-value" id="receipt-value">-</span>
+            </div>
+            <div class="receipt-row">
+              <span class="receipt-label">ICCID Status</span>
+              <span class="receipt-badge">ICCID Verified ✓</span>
+            </div>
+          </div>
+          <button type="button" id="btn-submit-another" class="link-button secondary" style="width:100%;margin-top:16px;">
+            Submit Another Request
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

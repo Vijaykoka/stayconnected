@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Vendor Admin — SIM Top-Up Requests &amp; Inventory</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/">
+        <span class="brand-icon" aria-hidden="true">S</span>
+        <span>Stayconnected</span>
+      </a>
+      <nav aria-label="Primary">
+        <a href="/">Customer Portal</a>
+        <a href="/test-data.html">Test data</a>
+        <a href="/admin.html">Admin</a>
+      </nav>
+    </header>
+    <div class="offer-strip">
+      <span>✦</span>
+      <strong>SIM Verification &amp; Top-Up Request Management Dashboard</strong>
+      <span>✦</span>
+    </div>
+    <main class="shell admin-shell">
+      <section class="activation-panel admin-panel" aria-labelledby="admin-title">
+        <div class="brand-row" style="justify-content: space-between; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <div class="brand-mark" aria-hidden="true">S</div>
+            <div>
+              <p class="eyebrow">Vendor Portal</p>
+              <h1 id="admin-title">Top-Up Requests &amp; SIM Inventory</h1>
+            </div>
+          </div>
+          <div class="admin-top-actions">
+            <a id="btn-export-requests" href="/api/admin/export-requests-csv" class="link-button" download>
+              <span class="button-icon" aria-hidden="true">↓</span>
+              <span>Export Requests (CSV)</span>
+            </a>
+            <a id="btn-export-inventory" href="/api/admin/export-csv" class="link-button secondary" download>
+              <span class="button-icon" aria-hidden="true">↓</span>
+              <span>Export SIM Inventory (CSV)</span>
+            </a>
+            <button type="button" id="btn-logout" class="link-button" style="background:#5a6b7c;min-height:42px;">
+              <span>Logout</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Admin Login Modal -->
+        <div id="login-modal" class="login-modal-overlay">
+          <div class="login-modal-card">
+            <div class="brand-row" style="margin-bottom: 12px;">
+              <div class="brand-mark" style="background:#0d4f8b;">🔒</div>
+              <div>
+                <p class="eyebrow">Vendor Security Check</p>
+                <h2 style="font-size:22px;">Admin Access Required</h2>
+              </div>
+            </div>
+            <p class="section-desc" style="margin-bottom:16px;">
+              This dashboard is protected. Please enter your Admin Password to view verified customer orders and manage your SIM inventory.
+            </p>
+            <form id="admin-login-form" novalidate>
+              <label>
+                <span>Admin Password</span>
+                <input type="password" id="admin-password-input" placeholder="Enter Admin Password" required autocomplete="current-password">
+              </label>
+              <div id="login-error" class="result error" style="margin-top: 10px;" hidden></div>
+              <button type="submit" id="btn-submit-login" style="width: 100%; margin-top: 14px;">
+                <span>Unlock Dashboard</span>
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div class="stats" id="stats">
+          <span>Total Authorized SIMs: --</span>
+          <span>Available SIMs: --</span>
+          <span>Activated SIMs: --</span>
+          <span>Incoming Requests: --</span>
+        </div>
+
+        <!-- Section 1: Customer Incoming Top-Up Requests -->
+        <div class="admin-section-block">
+          <div class="inventory-head" style="margin-top: 0;">
+            <div>
+              <h2>Incoming SIM Top-Up Requests</h2>
+              <p class="section-desc">Real-time verified customer submissions ready for operator recharge.</p>
+            </div>
+            <button type="button" id="btn-refresh-requests" class="tab" style="cursor:pointer;">↻ Refresh</button>
+          </div>
+
+          <div class="table-wrap inventory-table" style="max-height: 380px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Amazon Order ID</th>
+                  <th>SIM ICCID</th>
+                  <th>Network Name</th>
+                  <th>Top-Up Value</th>
+                  <th>ICCID Status</th>
+                  <th>Customer Email</th>
+                  <th>Submitted At</th>
+                </tr>
+              </thead>
+              <tbody id="requests-rows">
+                <tr>
+                  <td colspan="7">Loading customer requests...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Section 2: Bulk Import SIMs into Database -->
+        <div class="bulk-import-card" style="margin-top: 24px;">
+          <h2>Bulk Import Authorized SIMs (Thousands of ICCIDs)</h2>
+          <p class="section-desc">Upload a carrier CSV file or paste ICCIDs to register authorized stock in your database.</p>
+
+          <div class="import-mode-tabs">
+            <button type="button" class="import-tab active" id="tab-csv-file">Upload CSV / Excel file</button>
+            <button type="button" class="import-tab" id="tab-paste-text">Paste text / manual</button>
+          </div>
+
+          <form id="bulk-form" class="activation-form" novalidate>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px;">
+              <label>
+                <span>Ecommerce Channel</span>
+                <input id="ecommerce" name="ecommerce" value="Amazon" required>
+              </label>
+
+              <label>
+                <span>Batch / Shipment ID</span>
+                <input id="batchId" name="batchId" placeholder="AMZ-SHIPMENT-1000" required>
+              </label>
+
+              <label>
+                <span>Default Network (optional)</span>
+                <input id="network" name="network" placeholder="e.g. giffgaff">
+              </label>
+            </div>
+
+            <!-- Mode 1: File Drop Zone (Excel .xlsx, .xls, .csv, .txt) -->
+            <div id="file-drop-section" class="file-drop-zone">
+              <input type="file" id="csv-file-input" accept=".xlsx,.xls,.csv,.txt" style="display:none;">
+              <div class="drop-content" id="drop-content">
+                <span class="drop-icon">📊</span>
+                <strong>Click or drag &amp; drop an Excel (.xlsx / .xls) or CSV file here</strong>
+                <span class="muted-text">Directly parses carrier &amp; warehouse spreadsheets with thousands of 18–22 digit ICCIDs</span>
+                <a href="/api/admin/sample-csv" class="sample-link" download>Download Sample Template (.csv)</a>
+              </div>
+              <div id="file-info" class="file-info" hidden>
+                <span id="file-name">filename.xlsx</span>
+                <span id="file-count" class="badge activated">0 ICCIDs detected</span>
+                <button type="button" id="btn-clear-file" class="btn-clear">Remove</button>
+              </div>
+            </div>
+
+            <!-- Mode 2: Textarea Paste -->
+            <div id="text-paste-section" hidden>
+              <label>
+                <span>ICCID List (one per line, comma or space separated)</span>
+                <textarea id="iccids" name="iccids" rows="5" placeholder="8944000000000000001&#10;8944000000000000002&#10;8944000000000000003"></textarea>
+              </label>
+            </div>
+
+            <button id="submit-button" type="submit" style="margin-top: 8px;">
+              <span class="button-icon" aria-hidden="true">+</span>
+              <span id="import-btn-label">Import Authorized ICCIDs</span>
+            </button>
+          </form>
+
+          <div id="result" class="result" role="status" aria-live="polite" hidden></div>
+        </div>
+
+        <!-- Section 3: Authorized SIM Inventory View -->
+        <div class="inventory-head">
+          <div>
+            <h2>Authorised SIM Database</h2>
+            <p class="section-desc">Search and monitor all SIM cards authorized for customer top-ups.</p>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <input
+              type="search"
+              id="search-input"
+              placeholder="Search ICCID, Network, Order..."
+              style="width: 220px; padding: 7px 12px; font-size: 13px;"
+            >
+            <div class="tabs" role="tablist" aria-label="ICCID filters">
+              <button class="tab active" type="button" data-status="all">All</button>
+              <button class="tab" type="button" data-status="available">Available (Unused)</button>
+              <button class="tab" type="button" data-status="activated">Active / Requested</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-wrap inventory-table">
+          <table>
+            <thead>
+              <tr>
+                <th>ICCID</th>
+                <th>Status</th>
+                <th>Network</th>
+                <th>Last Top-Up</th>
+                <th>Amazon Order ID</th>
+                <th>Total Requests</th>
+                <th>Customer Email</th>
+                <th>Batch</th>
+                <th>Registered At</th>
+              </tr>
+            </thead>
+            <tbody id="inventory-rows">
+              <tr>
+                <td colspan="9">Loading SIM inventory...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="/vendor/xlsx.full.min.js"></script>
+    <script src="/admin.js"></script>
+  </body>
+</html>

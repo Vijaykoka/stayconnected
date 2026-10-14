@@ -1,0 +1,15 @@
+{
+  "requests": [
+    {
+      "id": "REQ-F890168B",
+      "title": "New SIM Top-Up Request",
+      "amazonOrderId": "790-2357194-3759311",
+      "simIccid": "8944115559845100001",
+      "networkName": "giffgaff",
+      "topUpValue": "£10",
+      "iccidVerified": true,
+      "customerEmail": "customer@example.com",
+      "submittedAt": "2026-10-14T16:40:05.356Z"
+    }
+  ]
+}

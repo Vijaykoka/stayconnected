@@ -1,0 +1,22 @@
+{
+  "name": "esim-activation-app",
+  "version": "1.0.0",
+  "description": "QR-based ICCID validation and eSIM activation flow for ecommerce SIM orders.",
+  "main": "server.js",
+  "scripts": {
+    "seed": "node scripts/seed-test-data.js",
+    "start": "node server.js",
+    "test:local": "node scripts/local-api-test.js"
+  },
+  "keywords": [
+    "esim",
+    "iccid",
+    "activation",
+    "amazon"
+  ],
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "pg": "^8.23.1"
+  }
+}

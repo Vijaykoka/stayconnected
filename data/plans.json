@@ -1,0 +1,37 @@
+[
+  {
+    "id": "plan-3gb-15d",
+    "name": "3GB - 15 Days",
+    "description": "High-speed 4G/5G data valid for 15 days"
+  },
+  {
+    "id": "plan-5gb-30d",
+    "name": "5GB - 30 Days",
+    "description": "High-speed 4G/5G data valid for 30 days"
+  },
+  {
+    "id": "plan-10gb-30d",
+    "name": "10GB - 30 Days",
+    "description": "High-speed 4G/5G data valid for 30 days"
+  },
+  {
+    "id": "plan-20gb-30d",
+    "name": "20GB - 30 Days",
+    "description": "High-speed 4G/5G data valid for 30 days"
+  },
+  {
+    "id": "plan-50gb-30d",
+    "name": "50GB - 30 Days",
+    "description": "High-speed 4G/5G data valid for 30 days"
+  },
+  {
+    "id": "plan-unlimited-15d",
+    "name": "Unlimited Data - 15 Days",
+    "description": "Unlimited data valid for 15 days"
+  },
+  {
+    "id": "plan-unlimited-30d",
+    "name": "Unlimited Data - 30 Days",
+    "description": "Unlimited data valid for 30 days"
+  }
+]
