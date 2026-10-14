@@ -76,18 +76,13 @@
           <label id="label-networkName">
             <span>Network Name <span class="required-star">*</span></span>
             <select id="networkName" name="networkName" required>
-              <option value="">-- Select your SIM network --</option>
+              <option value="">-- Select Network --</option>
+              <option value="O2">O2</option>
+              <option value="EE">EE</option>
+              <option value="THREE">THREE</option>
             </select>
             <small class="field-error-msg" id="err-networkName" hidden></small>
           </label>
-
-          <!-- Custom Network Name input (if Other is selected) -->
-          <div id="custom-network-container" hidden>
-            <label id="label-customNetwork">
-              <span>Specify Network Name <span class="required-star">*</span></span>
-              <input id="customNetwork" placeholder="e.g. giffgaff, O2, Vodafone">
-            </label>
-          </div>
 
           <!-- Field 4: Top-up value (Mandatory; dropdown) -->
           <label id="label-topUpValue">

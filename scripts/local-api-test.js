@@ -68,7 +68,7 @@ async function main() {
   const validRequest = await post("/api/topup-request", {
     orderId: sample.orderId,
     iccid: sample.iccid,
-    networkName: sample.networkName || "giffgaff",
+    networkName: sample.networkName || "O2",
     topUpValue: sample.topUpValue || "£10",
     email: "customer@example.com"
   });

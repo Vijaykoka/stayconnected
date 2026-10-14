@@ -2,8 +2,6 @@ const form = document.querySelector("#topup-form");
 const result = document.querySelector("#result");
 const submitButton = document.querySelector("#submit-button");
 const networkSelect = document.querySelector("#networkName");
-const customNetworkContainer = document.querySelector("#custom-network-container");
-const customNetworkInput = document.querySelector("#customNetwork");
 const topUpValueSelect = document.querySelector("#topUpValue");
 const btnValidateIccid = document.querySelector("#btn-validate-iccid");
 const iccidStatusBox = document.querySelector("#iccid-status-box");
@@ -45,17 +43,6 @@ async function loadConfig() {
     console.error("Config load error", err);
   }
 }
-
-// Show custom network input if "Other" is chosen
-networkSelect.addEventListener("change", () => {
-  if (networkSelect.value === "Other") {
-    customNetworkContainer.hidden = false;
-    customNetworkInput.required = true;
-  } else {
-    customNetworkContainer.hidden = true;
-    customNetworkInput.required = false;
-  }
-});
 
 // Prefill form from URL query parameters (e.g. from QR code)
 for (const field of ["orderId", "iccid", "email"]) {
@@ -147,10 +134,7 @@ form.addEventListener("submit", async (event) => {
 
   const orderId = String(form.elements.orderId.value || "").trim().toUpperCase();
   const iccid = String(form.elements.iccid.value || "").replace(/\D/g, "");
-  let networkName = String(networkSelect.value || "").trim();
-  if (networkName === "Other") {
-    networkName = String(customNetworkInput.value || "").trim();
-  }
+  const networkName = String(networkSelect.value || "").trim();
   const topUpValue = String(topUpValueSelect.value || "").trim();
   const email = String(form.elements.email.value || "").trim();
 

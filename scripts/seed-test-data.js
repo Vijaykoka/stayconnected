@@ -13,7 +13,7 @@ const TEST_DATA_PUBLIC = path.join(PUBLIC_DIR, "test-data.json");
 
 const COUNT = Number(process.argv[2] || 20);
 
-const SAMPLE_NETWORKS = ["giffgaff", "O2", "Vodafone", "EE", "Three", "Lebara"];
+const SAMPLE_NETWORKS = ["O2", "EE", "THREE"];
 const SAMPLE_TOPUPS = ["£10", "£15", "£20", "£25", "£30", "£50"];
 
 function randomDigits(length) {

@@ -3,17 +3,9 @@
 
 const DEFAULT_CONFIG = {
   networks: [
-    "giffgaff",
     "O2",
-    "Vodafone",
     "EE",
-    "Three",
-    "Lebara",
-    "Lycamobile",
-    "VOXI",
-    "SMARTY",
-    "Tesco Mobile",
-    "Other"
+    "THREE"
   ],
   topUpValues: ["£5", "£10", "£15", "£20", "£25", "£30", "£40", "£50"],
   notificationEmail: "vendor-orders@example.com"

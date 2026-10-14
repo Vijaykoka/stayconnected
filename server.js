@@ -16,17 +16,9 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 
 const DEFAULT_CONFIG = {
   networks: [
-    "giffgaff",
     "O2",
-    "Vodafone",
     "EE",
-    "Three",
-    "Lebara",
-    "Lycamobile",
-    "VOXI",
-    "SMARTY",
-    "Tesco Mobile",
-    "Other"
+    "THREE"
   ],
   topUpValues: ["£5", "£10", "£15", "£20", "£25", "£30", "£40", "£50"],
   notificationEmail: process.env.NOTIFICATION_EMAIL || "vendor-orders@example.com"
