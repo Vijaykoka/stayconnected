@@ -542,7 +542,12 @@ function handleOrderFile(file) {
 
   const processRows = (rows) => {
     parsedOrders = parseAmazonOrderRows(rows);
-    orderFileCount.textContent = `${parsedOrders.length.toLocaleString()} Amazon orders detected`;
+    const activeCount = parsedOrders.filter((o) => o.status !== "cancelled").length;
+    const cancelledCount = parsedOrders.length - activeCount;
+
+    orderFileCount.textContent = cancelledCount > 0
+      ? `${activeCount} Active orders (${cancelledCount} Returns/Cancelled flagged)`
+      : `${parsedOrders.length.toLocaleString()} Amazon orders detected`;
     importOrdersBtnLabel.textContent = `Confirm & Import ${parsedOrders.length.toLocaleString()} Verified Orders`;
 
     if (parsedOrders.length > 0) {
@@ -553,7 +558,7 @@ function handleOrderFile(file) {
           <td><span class="badge" style="background:#e8f4fd;color:#0b5394;">${o.network}</span></td>
           <td><strong style="color:#146b37;">${o.topUpValue}</strong></td>
           <td><small>${o.itemTitle || o.sku}</small></td>
-          <td>${o.itemPrice ? `£${o.itemPrice}` : o.topUpValue}</td>
+          <td>${o.status === "cancelled" ? '<span class="badge" style="background:#fee2e2;color:#991b1b;font-weight:700;">Returned / Cancelled</span>' : '<span class="badge available">Active Order</span>'}</td>
         </tr>
       `).join("") + (parsedOrders.length > 10 ? `<tr><td colspan="5" style="text-align:center;color:var(--muted);font-style:italic;">...and ${parsedOrders.length - 10} more orders ready to import</td></tr>` : "");
     } else {
@@ -598,6 +603,28 @@ function handleOrderFile(file) {
   reader.readAsText(file);
 }
 
+const ASIN_CATALOG = {
+  "B017M2ZZ3A": { network: "O2", topUp: "£15", title: "O2 £15 Big Bundle" },
+  "B01M2XS5GL": { network: "EE", topUp: "£15", title: "EE £15 Data Pack" },
+  "B0GZKJCQ9R": { network: "EE", topUp: "£15", title: "EE 20GB (£15)" },
+  "B0GZKNYBKR": { network: "EE", topUp: "£15", title: "EE 25GB/30GB (£15)" },
+  "B0GZKKK685": { network: "EE", topUp: "£15", title: "EE SIM Pack (£15)" },
+  "B01N1L2YCE": { network: "EE", topUp: "£20", title: "EE 50GB (£20)" },
+  "B016MWIMRW": { network: "EE", topUp: "£10", title: "EE 3-in-1 SIM" },
+  "B0DYKW3CK1": { network: "THREE", topUp: "£10", title: "Three 40GB (£10)" },
+  "B0888G1C16": { network: "THREE", topUp: "£10", title: "Three Mobile PAYG SIM" },
+  "B000TIY0EK": { network: "THREE", topUp: "£10", title: "Network 3 PAYG SIM" },
+  "B0D6W46FJK": { network: "THREE", topUp: "£10", title: "SMARTY (Three) SIM" },
+  "B0002GDK2C": { network: "O2", topUp: "£10", title: "O2 PAYG SIM Blue" },
+  "B08265GRSP": { network: "O2", topUp: "£15", title: "O2 Big Bundle Unlimited" },
+  "B08KHDBZK5": { network: "O2", topUp: "£10", title: "Giffgaff/O2 PAYG SIM" },
+  "B01M5GWY1N": { network: "O2", topUp: "£10", title: "Giffgaff Triple SIM" },
+  "B0189VSP3U": { network: "O2", topUp: "£10", title: "Giffgaff O2 4G Multi SIM" },
+  "B017TKT978": { network: "O2", topUp: "£10", title: "Giffgaff Nano SIM" },
+  "B07DLYWX6W": { network: "O2", topUp: "£10", title: "Vodafone/VOXI SIM" },
+  "B0FQ5LH556": { network: "O2", topUp: "£10", title: "VOXI SIM (£10)" }
+};
+
 function parseAmazonOrderRows(rows) {
   if (!Array.isArray(rows) || rows.length === 0) return [];
   let headerRowIdx = -1;
@@ -605,6 +632,8 @@ function parseAmazonOrderRows(rows) {
   let skuCol = -1;
   let titleCol = -1;
   let priceCol = -1;
+  let statusCol = -1;
+  let asinCol = -1;
 
   for (let r = 0; r < Math.min(rows.length, 5); r++) {
     const row = rows[r];
@@ -613,8 +642,10 @@ function parseAmazonOrderRows(rows) {
         const val = String(row[c] || "").trim().toLowerCase().replace(/["_\s-]/g, "");
         if (val === "orderid" || val === "amazonorderid") orderIdCol = c;
         if (val === "sku" || val === "merchantsku" || val === "sellersku") skuCol = c;
+        if (val === "asin") asinCol = c;
         if (val === "productname" || val === "itemname" || val === "title" || val === "itemtitle" || val === "products") titleCol = c;
         if (val === "itemprice" || val === "price" || val === "amount" || val === "ordertotalamount") priceCol = c;
+        if (val === "orderstatus" || val === "itemstatus" || val === "status") statusCol = c;
       }
       if (orderIdCol !== -1) {
         headerRowIdx = r;
@@ -646,35 +677,63 @@ function parseAmazonOrderRows(rows) {
     if (!/^\d{3}-\d{7}-\d{7}$/.test(orderId)) continue;
 
     const rowText = row.map((c) => String(c || "")).join(" ");
-    const sku = skuCol !== -1 ? String(row[skuCol] || "").trim() : "";
-    const title = titleCol !== -1 ? String(row[titleCol] || "").trim() : "";
-    const priceRaw = priceCol !== -1 ? String(row[priceCol] || "").trim() : "";
+    const rawStatus = statusCol !== -1 ? String(row[statusCol] || "").trim().toLowerCase() : "";
+    const isCancelled = rawStatus === "return" || rawStatus === "cancelled" || rawStatus === "refunded";
+
+    let asin = asinCol !== -1 ? String(row[asinCol] || "").trim().toUpperCase() : "";
+    if (!asin && titleCol !== -1) {
+      const matchAsin = String(row[titleCol] || "").match(/\bB0[0-9A-Z]{8}\b/);
+      if (matchAsin) asin = matchAsin[0];
+    }
+    if (!asin) {
+      const matchAsin = rowText.match(/\bB0[0-9A-Z]{8}\b/);
+      if (matchAsin) asin = matchAsin[0];
+    }
+
+    const catalogEntry = asin && ASIN_CATALOG[asin] ? ASIN_CATALOG[asin] : null;
 
     let network = "EE";
-    if (/\b(?:O2|O 2)\b/i.test(rowText)) network = "O2";
-    else if (/\b(?:EE|Everything Everywhere)\b/i.test(rowText)) network = "EE";
-    else if (/\b(?:THREE|3 UK|Three UK)\b/i.test(rowText)) network = "THREE";
+    if (catalogEntry) {
+      network = catalogEntry.network;
+    } else if (/\b(?:O2|O 2|Giffgaff)\b/i.test(rowText)) {
+      network = "O2";
+    } else if (/\b(?:THREE|3 UK|Three UK|Network 3|3 Mobile|Smarty)\b/i.test(rowText)) {
+      network = "THREE";
+    } else if (/\b(?:EE|Everything Everywhere)\b/i.test(rowText)) {
+      network = "EE";
+    }
 
     let topUpValue = "£15";
-    const priceMatch = (priceRaw + " " + rowText).match(/(?:£|GBP\s*|price[:\s]*£?)\s*(10|15|20|30|35)(?:\.00)?\b/i) ||
-                       (priceRaw + " " + rowText).match(/\b(10|15|20|30|35)\s*(?:pounds|gbp|top\s*up)/i);
-    if (priceMatch) {
-      topUpValue = `£${priceMatch[1]}`;
+    if (catalogEntry) {
+      topUpValue = catalogEntry.topUp;
     } else {
-      if (rowText.includes("£35") || rowText.includes("35.00")) topUpValue = "£35";
-      else if (rowText.includes("£30") || rowText.includes("30.00")) topUpValue = "£30";
-      else if (rowText.includes("£20") || rowText.includes("20.00")) topUpValue = "£20";
-      else if (rowText.includes("£15") || rowText.includes("15.00")) topUpValue = "£15";
-      else if (rowText.includes("£10") || rowText.includes("10.00")) topUpValue = "£10";
+      const priceRaw = priceCol !== -1 ? String(row[priceCol] || "").trim() : "";
+      const priceMatch = (priceRaw + " " + rowText).match(/(?:£|GBP\s*|price[:\s]*£?)\s*(10|15|20|30|35)(?:\.00)?\b/i) ||
+                         (priceRaw + " " + rowText).match(/\b(10|15|20|30|35)\s*(?:pounds|gbp|top\s*up)/i);
+      if (priceMatch) {
+        topUpValue = `£${priceMatch[1]}`;
+      } else {
+        if (rowText.includes("£35") || rowText.includes("35.00")) topUpValue = "£35";
+        else if (rowText.includes("£30") || rowText.includes("30.00")) topUpValue = "£30";
+        else if (rowText.includes("£20") || rowText.includes("20.00") || rowText.includes("50GB")) topUpValue = "£20";
+        else if (rowText.includes("£15") || rowText.includes("15.00") || rowText.includes("20GB")) topUpValue = "£15";
+        else if (rowText.includes("£10") || rowText.includes("10.00") || rowText.includes("40GB")) topUpValue = "£10";
+      }
     }
+
+    const sku = skuCol !== -1 ? String(row[skuCol] || "").trim() : "";
+    const title = catalogEntry ? catalogEntry.title : (titleCol !== -1 ? String(row[titleCol] || "").trim() : (sku || "Amazon Order"));
+    const priceRaw = priceCol !== -1 ? String(row[priceCol] || "").trim() : "";
 
     detectedOrders.push({
       orderId,
       network,
       topUpValue,
-      itemTitle: title || sku || "Amazon Order",
+      itemTitle: isCancelled ? `${title} [RETURNED]` : title,
       sku,
-      itemPrice: priceRaw || topUpValue.replace("£", "")
+      asin,
+      itemPrice: priceRaw || topUpValue.replace("£", ""),
+      status: isCancelled ? "cancelled" : "unclaimed"
     });
   }
 

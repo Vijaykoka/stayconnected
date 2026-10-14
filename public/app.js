@@ -184,6 +184,14 @@ async function checkOrderId() {
     const res = await fetch(`/api/validate-order?orderId=${encodeURIComponent(raw)}`);
     const data = await res.json();
 
+    if (data.cancelled) {
+      orderStatusBox.className = "iccid-status-pill error";
+      orderStatusBox.textContent = data.message || "This Amazon Order has been cancelled or returned on Amazon and is not eligible for a top-up.";
+      showFieldError("orderId", data.message || "Order returned/cancelled.");
+      verifiedAmazonOrder = null;
+      return;
+    }
+
     if (data.claimed) {
       orderStatusBox.className = "iccid-status-pill error";
       orderStatusBox.textContent = data.message || "This Amazon Order ID has already been redeemed.";

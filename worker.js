@@ -110,6 +110,16 @@ async function handleApiRequest(request, env, url) {
         });
       }
 
+      if (order && order.status === "cancelled") {
+        return jsonResponse({
+          ok: false,
+          found: true,
+          cancelled: true,
+          orderId,
+          message: "This Amazon Order was returned or cancelled on Amazon and is not eligible for a top-up."
+        });
+      }
+
       if (!order) {
         return jsonResponse({ ok: true, found: false, orderId, message: "Order format valid." });
       }
@@ -184,6 +194,13 @@ async function handleApiRequest(request, env, url) {
       // Check registered order verification
       const regOrder = await env.DB.prepare("SELECT * FROM amazon_orders WHERE order_id = ?").bind(orderId).first().catch(() => null);
       if (regOrder) {
+        if (regOrder.status === "cancelled") {
+          return jsonResponse({
+            ok: false,
+            code: "ORDER_CANCELLED",
+            message: "This Amazon Order was returned or cancelled on Amazon and cannot be redeemed."
+          }, 400);
+        }
         if (regOrder.status === "claimed") {
           return jsonResponse({
             ok: false,
@@ -390,16 +407,17 @@ async function handleApiRequest(request, env, url) {
         if (!/^\d{3}-\d{7}-\d{7}$/.test(orderId)) continue;
         const net = String(ord.network || "").trim().toUpperCase();
         const topUp = String(ord.topUpValue || "").trim();
+        const statusVal = String(ord.status || "unclaimed").trim();
         const check = await env.DB.prepare("SELECT order_id FROM amazon_orders WHERE order_id = ?").bind(orderId).first();
         if (check) {
           await env.DB.prepare(
-            "UPDATE amazon_orders SET network = ?, top_up_value = ?, item_title = COALESCE(?, item_title), sku = COALESCE(?, sku) WHERE order_id = ?"
-          ).bind(net, topUp, ord.itemTitle || null, ord.sku || null, orderId).run();
+            "UPDATE amazon_orders SET network = ?, top_up_value = ?, item_title = COALESCE(?, item_title), sku = COALESCE(?, sku), status = ? WHERE order_id = ?"
+          ).bind(net, topUp, ord.itemTitle || null, ord.sku || null, statusVal, orderId).run();
           updated++;
         } else {
           await env.DB.prepare(
-            "INSERT INTO amazon_orders (order_id, network, top_up_value, item_title, sku, item_price, source, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'unclaimed', ?)"
-          ).bind(orderId, net, topUp, ord.itemTitle || null, ord.sku || null, ord.itemPrice || null, ord.source || "csv_upload", new Date().toISOString()).run();
+            "INSERT INTO amazon_orders (order_id, network, top_up_value, item_title, sku, item_price, source, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+          ).bind(orderId, net, topUp, ord.itemTitle || null, ord.sku || null, ord.itemPrice || null, ord.source || "csv_upload", statusVal, new Date().toISOString()).run();
           added++;
         }
       }

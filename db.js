@@ -409,15 +409,17 @@ async function bulkInsertAmazonOrders(newOrders) {
       for (const ord of newOrders) {
         const orderId = String(ord.orderId || "").trim();
         if (!orderId) continue;
+        const statusVal = String(ord.status || "unclaimed").trim();
         const res = await client.query(
           `INSERT INTO amazon_orders (order_id, network, top_up_value, item_title, sku, item_price, source, status, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, 'unclaimed', NOW())
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
            ON CONFLICT (order_id) DO UPDATE SET
              network = EXCLUDED.network,
              top_up_value = EXCLUDED.top_up_value,
              item_title = COALESCE(EXCLUDED.item_title, amazon_orders.item_title),
              sku = COALESCE(EXCLUDED.sku, amazon_orders.sku),
-             item_price = COALESCE(EXCLUDED.item_price, amazon_orders.item_price)
+             item_price = COALESCE(EXCLUDED.item_price, amazon_orders.item_price),
+             status = EXCLUDED.status
            RETURNING (xmax = 0) AS is_new`,
           [
             orderId,
@@ -426,7 +428,8 @@ async function bulkInsertAmazonOrders(newOrders) {
             ord.itemTitle || "",
             ord.sku || "",
             ord.itemPrice || "",
-            ord.source || "csv_upload"
+            ord.source || "csv_upload",
+            statusVal
           ]
         );
         if (res.rows[0] && res.rows[0].is_new) inserted++;
@@ -461,6 +464,7 @@ async function bulkInsertAmazonOrders(newOrders) {
       if (ord.itemTitle) existing.itemTitle = ord.itemTitle;
       if (ord.sku) existing.sku = ord.sku;
       if (ord.itemPrice) existing.itemPrice = ord.itemPrice;
+      if (ord.status) existing.status = ord.status;
       updated++;
     } else {
       const entry = {
@@ -471,7 +475,7 @@ async function bulkInsertAmazonOrders(newOrders) {
         sku: ord.sku || "",
         itemPrice: ord.itemPrice || "",
         source: ord.source || "csv_upload",
-        status: "unclaimed",
+        status: String(ord.status || "unclaimed").trim(),
         claimedIccid: null,
         claimedAt: null,
         createdAt: new Date().toISOString()

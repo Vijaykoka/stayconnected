@@ -162,6 +162,16 @@ async function validateOrderHandler(req, res) {
     });
   }
 
+  if (order && order.status === "cancelled") {
+    return sendJson(res, 200, {
+      ok: false,
+      found: true,
+      cancelled: true,
+      orderId,
+      message: "This Amazon Order was returned or cancelled on Amazon and is not eligible for a top-up."
+    });
+  }
+
   if (!order) {
     return sendJson(res, 200, {
       ok: true,
@@ -250,6 +260,14 @@ async function topupRequestHandler(req, res) {
   // Check against Verified Amazon Orders Database if pre-loaded
   const registeredOrder = await db.getAmazonOrder(orderId);
   if (registeredOrder) {
+    if (registeredOrder.status === "cancelled") {
+      return sendJson(res, 400, {
+        ok: false,
+        code: "ORDER_CANCELLED",
+        message: "This Amazon Order was returned or cancelled on Amazon and cannot be redeemed."
+      });
+    }
+
     if (registeredOrder.status === "claimed") {
       return sendJson(res, 409, {
         ok: false,
@@ -538,7 +556,8 @@ async function adminBulkOrdersHandler(req, res) {
       itemTitle: String(ord.itemTitle || ord.title || "").trim(),
       sku: String(ord.sku || "").trim(),
       itemPrice: String(ord.itemPrice || ord.price || "").trim(),
-      source: String(ord.source || "csv_upload").trim()
+      source: String(ord.source || "csv_upload").trim(),
+      status: String(ord.status || "unclaimed").trim()
     });
   }
 
