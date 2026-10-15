@@ -77,26 +77,40 @@
           <!-- Realtime ICCID Verification Box -->
           <div id="iccid-status-box" class="iccid-status-pill" hidden></div>
 
-          <!-- Field 3: Network Name (Mandatory) -->
-          <label id="label-networkName">
-            <span>Network Name <span class="required-star">*</span></span>
-            <select id="networkName" name="networkName" required>
-              <option value="">-- Select Network --</option>
-              <option value="O2">O2</option>
-              <option value="EE">EE</option>
-              <option value="THREE">THREE</option>
-            </select>
-            <small class="field-error-msg" id="err-networkName" hidden></small>
-          </label>
+          <!-- Field 3 & 4: Network Name & Top-Up Plan (Auto-populated from Order ID, Dropdown removed) -->
+          <div class="verified-plan-row">
+            <label id="label-networkName">
+              <span>Network Name <span class="required-star">*</span></span>
+              <div class="locked-field-wrapper">
+                <input
+                  id="networkName"
+                  name="networkName"
+                  type="text"
+                  readonly
+                  placeholder="Auto-populated from Order ID"
+                  required
+                >
+                <span class="locked-field-badge" id="badge-networkName" hidden>🔒 Locked</span>
+              </div>
+              <small class="field-error-msg" id="err-networkName" hidden></small>
+            </label>
 
-          <!-- Field 4: Top-up value (Mandatory; dropdown) -->
-          <label id="label-topUpValue">
-            <span>Top-Up Value <span class="required-star">*</span></span>
-            <select id="topUpValue" name="topUpValue" required>
-              <option value="">-- Select network first --</option>
-            </select>
-            <small class="field-error-msg" id="err-topUpValue" hidden></small>
-          </label>
+            <label id="label-topUpValue">
+              <span>Top-Up Value <span class="required-star">*</span></span>
+              <div class="locked-field-wrapper">
+                <input
+                  id="topUpValue"
+                  name="topUpValue"
+                  type="text"
+                  readonly
+                  placeholder="Auto-populated from Order ID"
+                  required
+                >
+                <span class="locked-field-badge" id="badge-topUpValue" hidden>🔒 Locked</span>
+              </div>
+              <small class="field-error-msg" id="err-topUpValue" hidden></small>
+            </label>
+          </div>
 
           <!-- Optional Email for confirmation -->
           <label id="label-email">

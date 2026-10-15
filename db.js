@@ -393,7 +393,20 @@ async function getAmazonOrder(orderId) {
     };
   }
   const db = await readJson(AMAZON_ORDERS_DB, { orders: [] });
-  return db.orders.find((o) => o.orderId === normId) || null;
+  const found = db.orders.find((o) => o.orderId === normId);
+  if (found) return found;
+
+  const catalog = await readJson(path.join(__dirname, "public", "orders-catalog.json"), {});
+  if (catalog && catalog[normId]) {
+    const c = catalog[normId];
+    return {
+      orderId: normId,
+      network: c.network,
+      topUpValue: c.topUpValue,
+      status: c.status || "unclaimed"
+    };
+  }
+  return null;
 }
 
 async function bulkInsertAmazonOrders(newOrders) {

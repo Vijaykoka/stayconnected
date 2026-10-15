@@ -1,6 +1,8 @@
 // Cloudflare Worker entry point
 // Connects static assets with edge API functions
 
+import ordersCatalog from "./public/orders-catalog.json";
+
 const DEFAULT_CONFIG = {
   networks: [
     "O2",
@@ -94,51 +96,62 @@ async function handleApiRequest(request, env, url) {
       }, 400);
     }
 
+    let checkReq = null;
+    let order = null;
+
     if (env.DB) {
-      const checkReq = await env.DB.prepare("SELECT id FROM topup_requests WHERE amazon_order_id = ?").bind(orderId).first();
-      const order = await env.DB.prepare("SELECT * FROM amazon_orders WHERE order_id = ?").bind(orderId).first().catch(() => null);
+      checkReq = await env.DB.prepare("SELECT id FROM topup_requests WHERE amazon_order_id = ?").bind(orderId).first().catch(() => null);
+      order = await env.DB.prepare("SELECT * FROM amazon_orders WHERE order_id = ?").bind(orderId).first().catch(() => null);
+    }
 
-      if (checkReq || (order && order.status === "claimed")) {
-        return jsonResponse({
-          ok: true,
-          found: true,
-          claimed: true,
-          orderId,
-          network: order ? order.network : null,
-          topUpValue: order ? order.top_up_value : null,
-          message: "This Order ID has already been redeemed for a SIM top-up."
-        });
-      }
+    if (!order && ordersCatalog && ordersCatalog[orderId]) {
+      const cat = ordersCatalog[orderId];
+      order = {
+        order_id: orderId,
+        network: cat.network,
+        top_up_value: cat.topUpValue,
+        status: cat.status || "unclaimed"
+      };
+    }
 
-      if (order && order.status === "cancelled") {
-        return jsonResponse({
-          ok: false,
-          found: true,
-          cancelled: true,
-          orderId,
-          message: "This Order was returned or cancelled and is not eligible for a top-up."
-        });
-      }
-
-      if (!order) {
-        return jsonResponse({ ok: true, found: false, orderId, message: "Order format valid." });
-      }
-
+    if (checkReq || (order && order.status === "claimed")) {
       return jsonResponse({
         ok: true,
         found: true,
-        claimed: false,
-        orderId: order.order_id,
-        network: order.network,
-        topUpValue: order.top_up_value,
-        itemTitle: order.item_title || "",
-        sku: order.sku || "",
-        itemPrice: order.item_price || "",
-        message: `Verified Purchase: ${order.network} ${order.top_up_value}`
+        claimed: true,
+        orderId,
+        network: order ? (order.network || order.networkName) : null,
+        topUpValue: order ? (order.top_up_value || order.topUpValue) : null,
+        message: "This Order ID has already been redeemed for a SIM top-up."
       });
     }
 
-    return jsonResponse({ ok: true, found: false, orderId, message: "Order format valid." });
+    if (order && order.status === "cancelled") {
+      return jsonResponse({
+        ok: false,
+        found: true,
+        cancelled: true,
+        orderId,
+        message: "This Order was returned or cancelled and is not eligible for a top-up."
+      });
+    }
+
+    if (!order) {
+      return jsonResponse({ ok: true, found: false, orderId, message: "Order format valid." });
+    }
+
+    return jsonResponse({
+      ok: true,
+      found: true,
+      claimed: false,
+      orderId: order.order_id || order.orderId,
+      network: order.network,
+      topUpValue: order.top_up_value || order.topUpValue,
+      itemTitle: order.item_title || order.itemTitle || "",
+      sku: order.sku || "",
+      itemPrice: order.item_price || order.itemPrice || "",
+      message: `Verified Purchase: ${order.network} ${order.top_up_value || order.topUpValue}`
+    });
   }
 
   // 3. POST /api/topup-request
@@ -192,7 +205,16 @@ async function handleApiRequest(request, env, url) {
       }
 
       // Check registered order verification
-      const regOrder = await env.DB.prepare("SELECT * FROM amazon_orders WHERE order_id = ?").bind(orderId).first().catch(() => null);
+      let regOrder = await env.DB.prepare("SELECT * FROM amazon_orders WHERE order_id = ?").bind(orderId).first().catch(() => null);
+      if (!regOrder && ordersCatalog && ordersCatalog[orderId]) {
+        const cat = ordersCatalog[orderId];
+        regOrder = {
+          order_id: orderId,
+          network: cat.network,
+          top_up_value: cat.topUpValue,
+          status: cat.status || "unclaimed"
+        };
+      }
       if (regOrder) {
         if (regOrder.status === "cancelled") {
           return jsonResponse({
