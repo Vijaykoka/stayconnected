@@ -218,6 +218,36 @@ select:focus {
   box-shadow: 0 0 0 4px rgba(17, 106, 143, 0.14);
 }
 
+select:disabled,
+input:disabled {
+  background-color: #f1f5f9;
+  color: var(--text);
+  font-weight: 700;
+  cursor: not-allowed;
+  opacity: 0.9;
+  border-color: #cbd5e1;
+}
+
+@keyframes highlightPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(13, 79, 139, 0.4);
+    border-color: var(--primary);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(13, 79, 139, 0.25);
+    border-color: var(--primary);
+  }
+  100% {
+    box-shadow: none;
+    border-color: var(--line);
+  }
+}
+
+.highlight-pulse {
+  animation: highlightPulse 1.2s ease 2;
+  border-color: var(--primary) !important;
+}
+
 button {
   min-height: 48px;
   border: 0;

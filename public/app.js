@@ -165,16 +165,37 @@ async function checkIccid() {
   }
 }
 
+let isCheckingOrder = false;
+let orderInputTimer = null;
+
+function normalizeAndFormatOrderId(raw) {
+  let val = String(raw || "").trim().toUpperCase();
+  // Auto-hyphenate if user pasted 17 digits without hyphens
+  const digits = val.replace(/\D/g, "");
+  if (digits.length === 17 && !val.includes("-")) {
+    val = `${digits.slice(0, 3)}-${digits.slice(3, 10)}-${digits.slice(10, 17)}`;
+  }
+  return val;
+}
+
 // Live Order Check against Verified Orders Database
 async function checkOrderId() {
   clearFieldErrors();
-  const raw = String(form.elements.orderId.value || "").trim().toUpperCase();
+  const raw = normalizeAndFormatOrderId(form.elements.orderId.value);
+  if (raw !== form.elements.orderId.value) {
+    form.elements.orderId.value = raw;
+  }
 
   if (!raw || !/^\d{3}-\d{7}-\d{7}$/.test(raw)) {
     orderStatusBox.hidden = true;
     verifiedOrder = null;
+    networkSelect.disabled = false;
+    topUpValueSelect.disabled = false;
     return;
   }
+
+  if (isCheckingOrder) return;
+  isCheckingOrder = true;
 
   orderStatusBox.hidden = false;
   orderStatusBox.className = "iccid-status-pill loading";
@@ -189,6 +210,8 @@ async function checkOrderId() {
       orderStatusBox.textContent = data.message || "This Order has been cancelled or returned and is not eligible for a top-up.";
       showFieldError("orderId", data.message || "Order returned/cancelled.");
       verifiedOrder = null;
+      networkSelect.disabled = false;
+      topUpValueSelect.disabled = false;
       return;
     }
 
@@ -197,30 +220,82 @@ async function checkOrderId() {
       orderStatusBox.textContent = data.message || "This Order ID has already been redeemed.";
       showFieldError("orderId", data.message || "Order already redeemed.");
       verifiedOrder = null;
+      networkSelect.disabled = false;
+      topUpValueSelect.disabled = false;
       return;
     }
 
     if (data.found && data.network && data.topUpValue) {
       verifiedOrder = data;
-      orderStatusBox.className = "iccid-status-pill success";
-      orderStatusBox.innerHTML = `✓ <strong>Verified Purchase:</strong> ${data.network} ${data.topUpValue} (Selections Locked)`;
 
-      // Auto-set & lock network and top-up
+      // 1. Auto populate Network Name and Recharge Amount on the screen
       networkSelect.value = data.network;
       updateTopUpOptions(data.network, data.topUpValue);
+      networkSelect.disabled = true;
+      topUpValueSelect.disabled = true;
+
+      // Show verified notification badge on screen
+      orderStatusBox.className = "iccid-status-pill success";
+      orderStatusBox.innerHTML = `✓ <strong>Order Verified:</strong> Network: <strong>${data.network}</strong> &nbsp;|&nbsp; Top-Up: <strong>${data.topUpValue}</strong> (Auto-selected &amp; Locked)`;
+
+      // 2. Ask the customer to enter the ICCID
+      iccidStatusBox.hidden = false;
+      iccidStatusBox.className = "iccid-status-pill info";
+      iccidStatusBox.innerHTML = `👉 <strong>Please enter your SIM Card ICCID below</strong> (18–22 digits on your ${data.network} SIM) to complete your top-up.`;
+
+      // Focus and highlight the ICCID input field
+      const iccidInput = form.elements.iccid;
+      if (!iccidInput.value || iccidInput.value.replace(/\D/g, "").length < 18) {
+        iccidInput.focus();
+        iccidInput.classList.add("highlight-pulse");
+        setTimeout(() => iccidInput.classList.remove("highlight-pulse"), 2500);
+      }
       return;
     }
 
     // Valid format, but not yet pre-loaded in DB (e.g. fresh order)
-    orderStatusBox.hidden = true;
+    orderStatusBox.hidden = false;
+    orderStatusBox.className = "iccid-status-pill info";
+    orderStatusBox.textContent = "Order ID format valid. Please enter your SIM Card ICCID and select your Network below.";
     verifiedOrder = null;
+    networkSelect.disabled = false;
+    topUpValueSelect.disabled = false;
+    form.elements.iccid.focus();
   } catch {
     orderStatusBox.hidden = true;
+  } finally {
+    isCheckingOrder = false;
   }
 }
 
+// Trigger validation instantly as soon as user types or pastes the complete Order ID
+form.elements.orderId.addEventListener("input", () => {
+  clearTimeout(orderInputTimer);
+  const raw = form.elements.orderId.value.trim();
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 17 || /^\d{3}-\d{7}-\d{7}$/.test(raw)) {
+    orderInputTimer = setTimeout(checkOrderId, 180);
+  } else if (verifiedOrder) {
+    verifiedOrder = null;
+    networkSelect.disabled = false;
+    topUpValueSelect.disabled = false;
+    orderStatusBox.hidden = true;
+    iccidStatusBox.hidden = true;
+  }
+});
+
+form.elements.orderId.addEventListener("paste", () => {
+  setTimeout(checkOrderId, 50);
+});
+
 form.elements.orderId.addEventListener("blur", checkOrderId);
 form.elements.orderId.addEventListener("change", checkOrderId);
+form.elements.orderId.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    checkOrderId();
+  }
+});
 
 btnValidateIccid.addEventListener("click", checkIccid);
 form.elements.iccid.addEventListener("blur", () => {
@@ -343,12 +418,19 @@ btnSubmitAnother.addEventListener("click", () => {
   form.reset();
   clearFieldErrors();
   verifiedOrder = null;
+  networkSelect.disabled = false;
+  topUpValueSelect.disabled = false;
   form.hidden = false;
   receiptCard.hidden = true;
   result.hidden = true;
   iccidStatusBox.hidden = true;
   orderStatusBox.hidden = true;
   updateTopUpOptions("");
+  form.elements.orderId.focus();
 });
 
-loadConfig();
+loadConfig().then(() => {
+  if (form.elements.orderId && form.elements.orderId.value) {
+    checkOrderId();
+  }
+});
