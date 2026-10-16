@@ -265,6 +265,7 @@ function formatDate(value) {
 }
 
 // 1. Refresh Stats
+// 1. Refresh Stats
 async function refreshStats() {
   if (!getAdminToken()) return;
   try {
@@ -279,13 +280,54 @@ async function refreshStats() {
     // Fetch verified orders count
     const ordersRes = await fetch("/api/admin/orders", { headers: getAuthHeaders() }).catch(() => null);
     const ordersData = ordersRes ? await ordersRes.json().catch(() => null) : null;
-    const ordersCount = ordersData && ordersData.ok ? ordersData.total : 0;
+    let ordersCount = 0;
+    if (ordersData && ordersData.ok) {
+      if (typeof ordersData.total === "number") {
+        ordersCount = ordersData.total;
+      } else if (Array.isArray(ordersData.orders)) {
+        ordersCount = ordersData.orders.length;
+      }
+    } else if (data.summary && typeof data.summary.verifiedOrdersCount === "number") {
+      ordersCount = data.summary.verifiedOrdersCount;
+    }
+
+    const totalSims = Number(data.summary.total || 0);
+    const availSims = Number(data.summary.available || 0);
+    const incomingReqs = Number(data.summary.requestsCount || 0);
 
     stats.innerHTML = `
-      <span>Total Authorized SIMs: ${data.summary.total}</span>
-      <span>Available SIMs: ${data.summary.available}</span>
-      <span>Verified Orders: ${ordersCount}</span>
-      <span>Incoming Requests: ${data.summary.requestsCount || 0}</span>
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-label">Total Authorized SIMs</span>
+          <span class="stat-icon">💳</span>
+        </div>
+        <div class="stat-value">${totalSims.toLocaleString()}</div>
+        <div class="stat-hint">Registered in stock database</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-label">Available SIMs</span>
+          <span class="stat-icon">🟢</span>
+        </div>
+        <div class="stat-value">${availSims.toLocaleString()}</div>
+        <div class="stat-hint">Ready for customer activation</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-label">Verified Sales Orders</span>
+          <span class="stat-icon">📦</span>
+        </div>
+        <div class="stat-value">${ordersCount.toLocaleString()}</div>
+        <div class="stat-hint">Active Amazon/Sellerboard orders</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-label">Incoming Requests</span>
+          <span class="stat-icon">⚡</span>
+        </div>
+        <div class="stat-value">${incomingReqs.toLocaleString()}</div>
+        <div class="stat-hint">Customer submissions received</div>
+      </div>
     `;
   } catch (err) {
     console.error("Stats refresh error", err);
@@ -305,7 +347,16 @@ async function refreshRequests() {
     if (!data.ok) return;
 
     if (!data.requests || data.requests.length === 0) {
-      requestsRows.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted);">No top-up requests received yet. Customer submissions will appear here in real-time.</td></tr>';
+      requestsRows.innerHTML = `
+        <tr>
+          <td colspan="7" style="text-align:center;padding:36px 20px;color:var(--muted);">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+              <span style="font-size:28px;">📥</span>
+              <strong style="color:#334155;">No Top-Up Requests Yet</strong>
+              <span style="font-size:13px;max-width:380px;">Customer submissions submitted through the portal will appear here in real-time ready for operator processing.</span>
+            </div>
+          </td>
+        </tr>`;
       return;
     }
 
@@ -343,7 +394,16 @@ async function refreshInventory() {
     if (!data.ok) return;
 
     if (data.sims.length === 0) {
-      inventoryRows.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted);">No SIM records found.</td></tr>';
+      inventoryRows.innerHTML = `
+        <tr>
+          <td colspan="9" style="text-align:center;padding:36px 20px;color:var(--muted);">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+              <span style="font-size:28px;">💳</span>
+              <strong style="color:#334155;">No Authorized SIMs Found</strong>
+              <span style="font-size:13px;max-width:380px;">Use the bulk import tool above to register carrier SIM batches into your database.</span>
+            </div>
+          </td>
+        </tr>`;
       return;
     }
 
@@ -393,7 +453,16 @@ async function refreshOrders() {
     if (!data.ok) return;
 
     if (!data.orders || data.orders.length === 0) {
-      ordersRows.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted);">No verified orders in database. Upload your daily report or receive email alerts to populate this table.</td></tr>';
+      ordersRows.innerHTML = `
+        <tr>
+          <td colspan="8" style="text-align:center;padding:36px 20px;color:var(--muted);">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+              <span style="font-size:28px;">📦</span>
+              <strong style="color:#334155;">No Verified Orders Found</strong>
+              <span style="font-size:13px;max-width:380px;">Upload your daily sales report above or search with another term.</span>
+            </div>
+          </td>
+        </tr>`;
       return;
     }
 

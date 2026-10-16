@@ -293,6 +293,7 @@ async function getSummary() {
 
   const db = await readJson(ICCID_DB, { sims: [] });
   const requestsDb = await readJson(REQUESTS_DB, { requests: [] });
+  const ordersDb = await readJson(AMAZON_ORDERS_DB, { orders: [] });
   const summary = db.sims.reduce(
     (acc, sim) => {
       acc.total += 1;
@@ -302,6 +303,12 @@ async function getSummary() {
     { total: 0, available: 0, activated: 0 }
   );
   summary.requestsCount = requestsDb.requests.length;
+  let ordCount = ordersDb.orders.length;
+  if (!ordCount) {
+    const catalog = await readJson(path.join(__dirname, "public", "orders-catalog.json"), {});
+    ordCount = Object.keys(catalog).length;
+  }
+  summary.verifiedOrdersCount = ordCount;
   return summary;
 }
 

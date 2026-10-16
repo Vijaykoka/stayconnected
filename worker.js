@@ -353,14 +353,17 @@ async function handleApiRequest(request, env, url) {
     if (!checkAuth(request, env)) {
       return jsonResponse({ ok: false, message: "Unauthorized. Admin password required." }, 401);
     }
+    const catalogCount = ordersCatalog ? Object.keys(ordersCatalog).length : 0;
     if (env.DB) {
-      const total = (await env.DB.prepare("SELECT COUNT(*) AS c FROM sims").first())?.c || 0;
-      const avail = (await env.DB.prepare("SELECT COUNT(*) AS c FROM sims WHERE status = 'available'").first())?.c || 0;
-      const active = (await env.DB.prepare("SELECT COUNT(*) AS c FROM sims WHERE status = 'activated'").first())?.c || 0;
-      const reqs = (await env.DB.prepare("SELECT COUNT(*) AS c FROM topup_requests").first())?.c || 0;
-      return jsonResponse({ ok: true, summary: { total, available: avail, activated: active, requestsCount: reqs } });
+      const total = (await env.DB.prepare("SELECT COUNT(*) AS c FROM sims").first().catch(() => ({ c: 0 })))?.c || 0;
+      const avail = (await env.DB.prepare("SELECT COUNT(*) AS c FROM sims WHERE status = 'available'").first().catch(() => ({ c: 0 })))?.c || 0;
+      const active = (await env.DB.prepare("SELECT COUNT(*) AS c FROM sims WHERE status = 'activated'").first().catch(() => ({ c: 0 })))?.c || 0;
+      const reqs = (await env.DB.prepare("SELECT COUNT(*) AS c FROM topup_requests").first().catch(() => ({ c: 0 })))?.c || 0;
+      let ordCount = (await env.DB.prepare("SELECT COUNT(*) AS c FROM amazon_orders").first().catch(() => ({ c: 0 })))?.c || 0;
+      if (ordCount === 0) ordCount = catalogCount;
+      return jsonResponse({ ok: true, summary: { total, available: avail, activated: active, requestsCount: reqs, verifiedOrdersCount: ordCount } });
     }
-    return jsonResponse({ ok: true, summary: { total: 0, available: 0, activated: 0, requestsCount: 0 } });
+    return jsonResponse({ ok: true, summary: { total: 0, available: 0, activated: 0, requestsCount: 0, verifiedOrdersCount: catalogCount } });
   }
 
   // 7. GET /api/admin/requests
@@ -454,21 +457,36 @@ async function handleApiRequest(request, env, url) {
     if (!checkAuth(request, env)) {
       return jsonResponse({ ok: false, message: "Unauthorized. Admin password required." }, 401);
     }
+    const search = (url.searchParams.get("search") || "").trim().toUpperCase();
+    let ordersList = [];
     if (env.DB) {
-      const search = url.searchParams.get("search") || "";
       let query = "SELECT order_id AS orderId, network, top_up_value AS topUpValue, item_title AS itemTitle, sku, item_price AS itemPrice, source, status, claimed_iccid AS claimedIccid, claimed_at AS claimedAt, created_at AS createdAt FROM amazon_orders";
-      let results;
       if (search) {
         query += " WHERE order_id LIKE ? OR network LIKE ? OR sku LIKE ? ORDER BY created_at DESC LIMIT 200";
         const pattern = `%${search}%`;
-        results = (await env.DB.prepare(query).bind(pattern, pattern, pattern).all()).results;
+        ordersList = (await env.DB.prepare(query).bind(pattern, pattern, pattern).all().catch(() => ({ results: [] }))).results || [];
       } else {
         query += " ORDER BY created_at DESC LIMIT 200";
-        results = (await env.DB.prepare(query).all()).results;
+        ordersList = (await env.DB.prepare(query).all().catch(() => ({ results: [] }))).results || [];
       }
-      return jsonResponse({ ok: true, orders: results || [] });
     }
-    return jsonResponse({ ok: true, orders: [] });
+
+    if ((!ordersList || ordersList.length === 0) && ordersCatalog) {
+      ordersList = Object.entries(ordersCatalog).map(([k, v]) => ({
+        orderId: k,
+        network: v.network,
+        topUpValue: v.topUpValue,
+        status: v.status || "unclaimed",
+        itemTitle: `SIM Card (${v.network} ${v.topUpValue})`,
+        sku: "SIM-PAYG",
+        itemPrice: v.topUpValue ? v.topUpValue.replace("£", "") : "10",
+        source: "sellerboard_report",
+        claimedIccid: null,
+        createdAt: "2026-10-14T00:00:00Z"
+      })).filter(o => !search || o.orderId.toUpperCase().includes(search) || o.network.toUpperCase().includes(search));
+    }
+
+    return jsonResponse({ ok: true, orders: ordersList, total: ordersList.length });
   }
 
   // 12. POST /api/webhooks/amazon-email

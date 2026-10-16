@@ -36,15 +36,16 @@
             </div>
           </div>
           <div class="admin-top-actions">
-            <a id="btn-export-requests" href="/api/admin/export-requests-csv" class="link-button" download>
-              <span class="button-icon" aria-hidden="true">↓</span>
-              <span>Export Requests (CSV)</span>
+            <a id="btn-export-requests" href="/api/admin/export-requests-csv" class="btn-action-outline" download>
+              <span aria-hidden="true">📥</span>
+              <span>Export Requests</span>
             </a>
-            <a id="btn-export-inventory" href="/api/admin/export-csv" class="link-button secondary" download>
-              <span class="button-icon" aria-hidden="true">↓</span>
-              <span>Export SIM Inventory (CSV)</span>
+            <a id="btn-export-inventory" href="/api/admin/export-csv" class="btn-action-outline" download>
+              <span aria-hidden="true">📋</span>
+              <span>Export SIM Stock</span>
             </a>
-            <button type="button" id="btn-logout" class="link-button" style="background:#5a6b7c;min-height:42px;">
+            <button type="button" id="btn-logout" class="btn-action-logout">
+              <span aria-hidden="true">🚪</span>
               <span>Logout</span>
             </button>
           </div>
@@ -77,10 +78,38 @@
         </div>
 
         <div class="stats" id="stats">
-          <span>Total Authorized SIMs: --</span>
-          <span>Available SIMs: --</span>
-          <span>Verified Orders: --</span>
-          <span>Incoming Requests: --</span>
+          <div class="stat-card">
+            <div class="stat-header">
+              <span class="stat-label">Total Authorized SIMs</span>
+              <span class="stat-icon">💳</span>
+            </div>
+            <div class="stat-value">--</div>
+            <div class="stat-hint">Registered in stock database</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-header">
+              <span class="stat-label">Available SIMs</span>
+              <span class="stat-icon">🟢</span>
+            </div>
+            <div class="stat-value">--</div>
+            <div class="stat-hint">Ready for customer activation</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-header">
+              <span class="stat-label">Verified Sales Orders</span>
+              <span class="stat-icon">📦</span>
+            </div>
+            <div class="stat-value">--</div>
+            <div class="stat-hint">Active Amazon/Sellerboard orders</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-header">
+              <span class="stat-label">Incoming Requests</span>
+              <span class="stat-icon">⚡</span>
+            </div>
+            <div class="stat-value">--</div>
+            <div class="stat-hint">Customer submissions received</div>
+          </div>
         </div>
 
         <!-- Section 1: Customer Incoming Top-Up Requests -->
