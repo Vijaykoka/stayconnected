@@ -186,6 +186,7 @@ async function validateOrderHandler(req, res) {
     found: true,
     claimed: false,
     orderId: order.orderId,
+    asin: order.asin || "",
     network: order.network,
     topUpValue: order.topUpValue,
     itemTitle: order.itemTitle || "",
@@ -579,6 +580,87 @@ async function adminGetOrdersHandler(req, res) {
   return sendJson(res, 200, { ok: true, orders, total: orders.length });
 }
 
+// ASIN Catalog handlers
+async function adminGetAsinsHandler(req, res) {
+  if (!checkAdminAuth(req)) {
+    return sendJson(res, 401, { ok: false, message: "Unauthorized. Admin password required." });
+  }
+  const asins = await db.getAsinCatalog();
+  return sendJson(res, 200, { ok: true, asins });
+}
+
+async function adminSaveAsinHandler(req, res) {
+  if (!checkAdminAuth(req)) {
+    return sendJson(res, 401, { ok: false, message: "Unauthorized. Admin password required." });
+  }
+  const payload = await readRequestBody(req);
+  const asin = String(payload.asin || "").trim().toUpperCase();
+  const network = String(payload.network || "").trim().toUpperCase();
+  const topUp = String(payload.topUp || payload.topUpValue || "").trim();
+  const title = String(payload.title || payload.itemTitle || "").trim();
+
+  if (!asin || !network || !topUp) {
+    return sendJson(res, 400, { ok: false, message: "ASIN, Network, and Top-Up value are required." });
+  }
+
+  try {
+    const entry = await db.saveAsinCatalogEntry({ asin, network, topUp, title });
+    return sendJson(res, 200, { ok: true, message: `ASIN ${asin} saved successfully.`, entry });
+  } catch (err) {
+    return sendJson(res, 400, { ok: false, message: err.message });
+  }
+}
+
+async function adminDeleteAsinHandler(req, res) {
+  if (!checkAdminAuth(req)) {
+    return sendJson(res, 401, { ok: false, message: "Unauthorized. Admin password required." });
+  }
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const asin = url.searchParams.get("asin") || "";
+  if (!asin) {
+    return sendJson(res, 400, { ok: false, message: "ASIN parameter is required." });
+  }
+  await db.deleteAsinCatalogEntry(asin);
+  return sendJson(res, 200, { ok: true, message: `ASIN ${asin} removed.` });
+}
+
+async function adminUpdateOrderAsinHandler(req, res) {
+  if (!checkAdminAuth(req)) {
+    return sendJson(res, 401, { ok: false, message: "Unauthorized. Admin password required." });
+  }
+  const payload = await readRequestBody(req);
+  const orderId = String(payload.orderId || "").trim().toUpperCase();
+  const asin = String(payload.asin || "").trim().toUpperCase();
+  let network = String(payload.network || "").trim().toUpperCase();
+  let topUpValue = String(payload.topUpValue || payload.topUp || "").trim();
+  let itemTitle = String(payload.itemTitle || payload.title || "").trim();
+
+  if (!orderId) {
+    return sendJson(res, 400, { ok: false, message: "Order ID is required." });
+  }
+
+  // If network or topUpValue not specified, look up in ASIN catalog
+  if (asin && (!network || !topUpValue)) {
+    const catalog = await db.getAsinCatalog();
+    if (catalog && catalog[asin]) {
+      network = network || catalog[asin].network;
+      topUpValue = topUpValue || catalog[asin].topUp;
+      itemTitle = itemTitle || catalog[asin].title;
+    }
+  }
+
+  try {
+    const updated = await db.updateOrderAsin(orderId, asin, network, topUpValue, itemTitle);
+    return sendJson(res, 200, {
+      ok: true,
+      message: `Order ${orderId} updated to ASIN ${asin || "None"} (${network || "Auto"} ${topUpValue || ""}).`,
+      order: updated
+    });
+  } catch (err) {
+    return sendJson(res, 400, { ok: false, message: err.message });
+  }
+}
+
 // Inbound webhook for Amazon order email alerts
 async function amazonEmailWebhookHandler(req, res) {
   const payload = await readRequestBody(req);
@@ -666,6 +748,18 @@ async function handleRequest(req, res) {
     }
     if (req.method === "GET" && url.pathname === "/api/admin/orders") {
       return adminGetOrdersHandler(req, res);
+    }
+    if (req.method === "POST" && url.pathname === "/api/admin/orders/update-asin") {
+      return adminUpdateOrderAsinHandler(req, res);
+    }
+    if (req.method === "GET" && url.pathname === "/api/admin/asins") {
+      return adminGetAsinsHandler(req, res);
+    }
+    if (req.method === "POST" && url.pathname === "/api/admin/asins") {
+      return adminSaveAsinHandler(req, res);
+    }
+    if (req.method === "DELETE" && url.pathname === "/api/admin/asins") {
+      return adminDeleteAsinHandler(req, res);
     }
     if (req.method === "POST" && url.pathname === "/api/webhooks/amazon-email") {
       return amazonEmailWebhookHandler(req, res);

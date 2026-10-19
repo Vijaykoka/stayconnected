@@ -7,6 +7,10 @@ const REQUESTS_DB = path.join(DATA_DIR, "topup-requests.json");
 const CONFIG_DB = path.join(DATA_DIR, "config.json");
 const NOTIFICATION_DB = path.join(DATA_DIR, "activation-notifications.json");
 const AMAZON_ORDERS_DB = path.join(DATA_DIR, "amazon-orders.json");
+const ASIN_CATALOG_DB = path.join(DATA_DIR, "asin-catalog.json");
+const PUBLIC_DIR = path.join(__dirname, "public");
+const PUBLIC_ASIN_DB = path.join(PUBLIC_DIR, "asin-catalog.json");
+const PUBLIC_ORDERS_CATALOG = path.join(PUBLIC_DIR, "orders-catalog.json");
 
 let pgPool = null;
 
@@ -59,6 +63,7 @@ async function initDb() {
 
         CREATE TABLE IF NOT EXISTS amazon_orders (
           order_id VARCHAR(64) PRIMARY KEY,
+          asin VARCHAR(64),
           network VARCHAR(64) NOT NULL,
           top_up_value VARCHAR(32) NOT NULL,
           item_title VARCHAR(255),
@@ -70,6 +75,16 @@ async function initDb() {
           claimed_at TIMESTAMPTZ,
           created_at TIMESTAMPTZ DEFAULT NOW()
         );
+
+        CREATE TABLE IF NOT EXISTS asin_catalog (
+          asin VARCHAR(64) PRIMARY KEY,
+          network VARCHAR(64) NOT NULL,
+          top_up VARCHAR(32) NOT NULL,
+          title VARCHAR(255),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+
+        ALTER TABLE amazon_orders ADD COLUMN IF NOT EXISTS asin VARCHAR(64);
 
         CREATE INDEX IF NOT EXISTS idx_sims_order_id ON sims(order_id);
         CREATE INDEX IF NOT EXISTS idx_requests_order_id ON topup_requests(amazon_order_id);
@@ -431,9 +446,10 @@ async function bulkInsertAmazonOrders(newOrders) {
         if (!orderId) continue;
         const statusVal = String(ord.status || "unclaimed").trim();
         const res = await client.query(
-          `INSERT INTO amazon_orders (order_id, network, top_up_value, item_title, sku, item_price, source, status, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+          `INSERT INTO amazon_orders (order_id, asin, network, top_up_value, item_title, sku, item_price, source, status, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
            ON CONFLICT (order_id) DO UPDATE SET
+             asin = COALESCE(NULLIF(EXCLUDED.asin, ''), amazon_orders.asin),
              network = EXCLUDED.network,
              top_up_value = EXCLUDED.top_up_value,
              item_title = COALESCE(EXCLUDED.item_title, amazon_orders.item_title),
@@ -443,6 +459,7 @@ async function bulkInsertAmazonOrders(newOrders) {
            RETURNING (xmax = 0) AS is_new`,
           [
             orderId,
+            String(ord.asin || "").trim().toUpperCase(),
             String(ord.network || "").trim().toUpperCase(),
             String(ord.topUpValue || "").trim(),
             ord.itemTitle || "",
@@ -479,6 +496,7 @@ async function bulkInsertAmazonOrders(newOrders) {
     if (!orderId) continue;
     const existing = map.get(orderId);
     if (existing) {
+      if (ord.asin) existing.asin = String(ord.asin).trim().toUpperCase();
       existing.network = String(ord.network || existing.network).trim().toUpperCase();
       existing.topUpValue = String(ord.topUpValue || existing.topUpValue).trim();
       if (ord.itemTitle) existing.itemTitle = ord.itemTitle;
@@ -489,6 +507,7 @@ async function bulkInsertAmazonOrders(newOrders) {
     } else {
       const entry = {
         orderId,
+        asin: String(ord.asin || "").trim().toUpperCase(),
         network: String(ord.network || "").trim().toUpperCase(),
         topUpValue: String(ord.topUpValue || "").trim(),
         itemTitle: ord.itemTitle || "",
@@ -538,12 +557,13 @@ async function getAmazonOrdersList(search) {
     const params = [];
     if (search) {
       params.push(`%${search}%`);
-      query += ` AND (order_id ILIKE $1 OR network ILIKE $1 OR item_title ILIKE $1 OR sku ILIKE $1)`;
+      query += ` AND (order_id ILIKE $1 OR asin ILIKE $1 OR network ILIKE $1 OR item_title ILIKE $1 OR sku ILIKE $1)`;
     }
     query += " ORDER BY created_at DESC LIMIT 500";
     const res = await pgPool.query(query, params);
     return res.rows.map((r) => ({
       orderId: r.order_id,
+      asin: r.asin || "",
       network: r.network,
       topUpValue: r.top_up_value,
       itemTitle: r.item_title,
@@ -562,12 +582,115 @@ async function getAmazonOrdersList(search) {
     const s = search.toLowerCase();
     list = list.filter((o) =>
       o.orderId.toLowerCase().includes(s) ||
+      (o.asin && o.asin.toLowerCase().includes(s)) ||
       (o.network && o.network.toLowerCase().includes(s)) ||
       (o.itemTitle && o.itemTitle.toLowerCase().includes(s)) ||
       (o.sku && o.sku.toLowerCase().includes(s))
     );
   }
-  return list.sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+  return list.map((o) => ({ ...o, asin: o.asin || "" })).sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+}
+
+async function getAsinCatalog() {
+  if (pgPool) {
+    const res = await pgPool.query("SELECT asin, network, top_up AS \"topUp\", title FROM asin_catalog ORDER BY asin ASC");
+    if (res.rows.length > 0) {
+      const map = {};
+      for (const r of res.rows) {
+        map[r.asin] = { asin: r.asin, network: r.network, topUp: r.topUp, title: r.title || "" };
+      }
+      return map;
+    }
+  }
+  const catalog = await readJson(ASIN_CATALOG_DB, {});
+  return catalog;
+}
+
+async function saveAsinCatalogEntry({ asin, network, topUp, title }) {
+  const normAsin = String(asin || "").trim().toUpperCase();
+  const normNetwork = String(network || "").trim().toUpperCase();
+  const normTopUp = String(topUp || "").trim();
+  const normTitle = String(title || "").trim();
+
+  if (!normAsin) throw new Error("ASIN is required.");
+  if (!normNetwork) throw new Error("Network is required.");
+  if (!normTopUp) throw new Error("Top-Up value is required.");
+
+  if (pgPool) {
+    await pgPool.query(
+      `INSERT INTO asin_catalog (asin, network, top_up, title, updated_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       ON CONFLICT (asin) DO UPDATE SET
+         network = EXCLUDED.network,
+         top_up = EXCLUDED.top_up,
+         title = EXCLUDED.title,
+         updated_at = NOW()`,
+      [normAsin, normNetwork, normTopUp, normTitle]
+    );
+  }
+
+  // Update JSON files
+  const catalog = await readJson(ASIN_CATALOG_DB, {});
+  catalog[normAsin] = {
+    asin: normAsin,
+    network: normNetwork,
+    topUp: normTopUp,
+    title: normTitle || `${normNetwork} ${normTopUp} Topup`
+  };
+  await writeJson(ASIN_CATALOG_DB, catalog);
+  await writeJson(PUBLIC_ASIN_DB, catalog).catch(() => {});
+
+  return catalog[normAsin];
+}
+
+async function deleteAsinCatalogEntry(asin) {
+  const normAsin = String(asin || "").trim().toUpperCase();
+  if (pgPool) {
+    await pgPool.query("DELETE FROM asin_catalog WHERE asin = $1", [normAsin]);
+  }
+  const catalog = await readJson(ASIN_CATALOG_DB, {});
+  delete catalog[normAsin];
+  await writeJson(ASIN_CATALOG_DB, catalog);
+  await writeJson(PUBLIC_ASIN_DB, catalog).catch(() => {});
+  return { ok: true, asin: normAsin };
+}
+
+async function updateOrderAsin(orderId, asin, network, topUpValue, itemTitle) {
+  const normOrderId = String(orderId || "").trim().toUpperCase();
+  const normAsin = String(asin || "").trim().toUpperCase();
+  const normNetwork = String(network || "").trim().toUpperCase();
+  const normTopUp = String(topUpValue || "").trim();
+
+  if (pgPool) {
+    await pgPool.query(
+      `UPDATE amazon_orders
+       SET asin = $1, network = $2, top_up_value = $3, item_title = COALESCE(NULLIF($4, ''), item_title)
+       WHERE order_id = $5`,
+      [normAsin, normNetwork, normTopUp, itemTitle || null, normOrderId]
+    );
+  }
+
+  // Update amazon-orders.json
+  const db = await readJson(AMAZON_ORDERS_DB, { orders: [] });
+  const ord = db.orders.find((o) => o.orderId === normOrderId);
+  if (ord) {
+    ord.asin = normAsin;
+    ord.network = normNetwork;
+    ord.topUpValue = normTopUp;
+    if (itemTitle) ord.itemTitle = itemTitle;
+    await writeJson(AMAZON_ORDERS_DB, db);
+  }
+
+  // Update public/orders-catalog.json
+  const ordersCatalog = await readJson(PUBLIC_ORDERS_CATALOG, {});
+  if (ordersCatalog[normOrderId]) {
+    ordersCatalog[normOrderId].asin = normAsin;
+    ordersCatalog[normOrderId].network = normNetwork;
+    ordersCatalog[normOrderId].topUpValue = normTopUp;
+    await writeJson(PUBLIC_ORDERS_CATALOG, ordersCatalog);
+  }
+
+  return { orderId: normOrderId, asin: normAsin, network: normNetwork, topUpValue: normTopUp };
 }
 
 module.exports = {
@@ -583,6 +706,10 @@ module.exports = {
   bulkInsertAmazonOrders,
   markAmazonOrderClaimed,
   getAmazonOrdersList,
+  getAsinCatalog,
+  saveAsinCatalogEntry,
+  deleteAsinCatalogEntry,
+  updateOrderAsin,
   readJson,
   CONFIG_DB
 };

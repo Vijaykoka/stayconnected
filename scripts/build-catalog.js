@@ -1,6 +1,10 @@
 const fs = require('fs');
 
-const ASIN_CATALOG = {
+// Load ASIN catalog from data/asin-catalog.json
+let ASIN_CATALOG = {
+  'B0FN4LXYM7': { network: 'THREE', topUp: '£10', title: 'Three £10 Topup' },
+  'B0FLZ8Z84T': { network: 'EE', topUp: '£10', title: 'EE £10 Topup' },
+  'B0FLM3DNMQ': { network: 'O2', topUp: '£10', title: 'O2 £10 Topup' },
   'B017M2ZZ3A': { network: 'O2', topUp: '£15', title: 'O2 £15 Big Bundle' },
   'B01M2XS5GL': { network: 'EE', topUp: '£15', title: 'EE £15 Data Pack' },
   'B0GZKJCQ9R': { network: 'EE', topUp: '£15', title: 'EE 20GB (£15)' },
@@ -21,6 +25,14 @@ const ASIN_CATALOG = {
   'B07DLYWX6W': { network: 'O2', topUp: '£10', title: 'Vodafone/VOXI SIM' },
   'B0FQ5LH556': { network: 'O2', topUp: '£10', title: 'VOXI SIM (£10)' }
 };
+
+if (fs.existsSync('data/asin-catalog.json')) {
+  try {
+    ASIN_CATALOG = Object.assign({}, ASIN_CATALOG, JSON.parse(fs.readFileSync('data/asin-catalog.json', 'utf8')));
+  } catch (e) {
+    console.warn('Could not parse data/asin-catalog.json, using defaults');
+  }
+}
 
 const ordersMap = new Map();
 
@@ -49,6 +61,7 @@ for (const f of csvFiles) {
     const existing = ordersMap.get(orderId) || {};
     ordersMap.set(orderId, {
       orderId,
+      asin: asin || existing.asin || '',
       network: catalog.network || existing.network || 'EE',
       topUpValue: catalog.topUp || existing.topUpValue || '£15',
       itemTitle: catalog.title || existing.itemTitle || 'SIM Card',
@@ -71,6 +84,7 @@ fs.writeFileSync('data/amazon-orders.json', JSON.stringify({ orders: ordersList 
 const lookup = {};
 for (const o of ordersList) {
   lookup[o.orderId] = {
+    asin: o.asin || '',
     network: o.network,
     topUpValue: o.topUpValue,
     status: o.status,

@@ -48,6 +48,33 @@ const ordersRows = document.querySelector("#orders-rows");
 const searchOrdersInput = document.querySelector("#search-orders-input");
 const btnRefreshOrders = document.querySelector("#btn-refresh-orders");
 
+// ASIN Catalog & Code Management Elements
+const asinForm = document.querySelector("#asin-form");
+const asinCodeInput = document.querySelector("#asin-code");
+const asinNetworkSelect = document.querySelector("#asin-network");
+const asinTopupSelect = document.querySelector("#asin-topup");
+const asinTitleInput = document.querySelector("#asin-title");
+const btnSaveAsin = document.querySelector("#btn-save-asin");
+const asinResult = document.querySelector("#asin-result");
+const asinsRows = document.querySelector("#asins-rows");
+const btnRefreshAsins = document.querySelector("#btn-refresh-asins");
+
+// Modal: Update Order ASIN Elements
+const modalUpdateAsin = document.querySelector("#modal-update-asin");
+const modalAsinClose = document.querySelector("#modal-asin-close");
+const modalAsinCancel = document.querySelector("#modal-asin-cancel");
+const formUpdateOrderAsin = document.querySelector("#form-update-order-asin");
+const modalOrderId = document.querySelector("#modal-order-id");
+const modalOrderIdLabel = document.querySelector("#modal-order-id-label");
+const modalAsinSelect = document.querySelector("#modal-asin-select");
+const modalAsinInput = document.querySelector("#modal-asin-input");
+const modalNetwork = document.querySelector("#modal-network");
+const modalTopup = document.querySelector("#modal-topup");
+const modalAsinResult = document.querySelector("#modal-asin-result");
+const modalAsinSubmit = document.querySelector("#modal-asin-submit");
+
+let currentAsinCatalog = {};
+
 let activeStatus = "all";
 let parsedFileIccids = [];
 let parsedOrders = [];
@@ -435,7 +462,7 @@ async function refreshInventory() {
 
 async function refreshAll() {
   if (checkAuth()) {
-    await Promise.all([refreshStats(), refreshRequests(), refreshInventory(), refreshOrders()]);
+    await Promise.all([refreshStats(), refreshRequests(), refreshInventory(), refreshOrders(), refreshAsinCatalog()]);
   }
 }
 
@@ -455,7 +482,7 @@ async function refreshOrders() {
     if (!data.orders || data.orders.length === 0) {
       ordersRows.innerHTML = `
         <tr>
-          <td colspan="8" style="text-align:center;padding:36px 20px;color:var(--muted);">
+          <td colspan="10" style="text-align:center;padding:36px 20px;color:var(--muted);">
             <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
               <span style="font-size:28px;">📦</span>
               <strong style="color:#334155;">No Verified Orders Found</strong>
@@ -472,9 +499,14 @@ async function refreshOrders() {
         const statusBadge = isClaimed
           ? `<span class="badge activated">Redeemed ✓</span>`
           : `<span class="badge available">Unclaimed</span>`;
+        const asinBadge = o.asin
+          ? `<span class="asin-badge">${o.asin}</span>`
+          : `<span class="asin-badge none">Not Assigned</span>`;
+
         return `
           <tr>
             <td><code style="font-weight:bold;color:var(--primary);">${o.orderId}</code></td>
+            <td>${asinBadge}</td>
             <td><span class="badge" style="background:#e8f4fd;color:#0b5394;">${o.network}</span></td>
             <td><strong style="color:#146b37;">${o.topUpValue}</strong></td>
             <td><small>${o.itemTitle || o.sku || "-"}</small></td>
@@ -482,6 +514,9 @@ async function refreshOrders() {
             <td>${o.claimedIccid ? `<code>${o.claimedIccid}</code>` : "-"}</td>
             <td><span class="badge" style="background:#f0f4f8;color:var(--muted);">${o.source === "email_alert" ? "✉ Email Alert" : "📄 CSV Report"}</span></td>
             <td>${formatDate(o.createdAt)}</td>
+            <td>
+              <button type="button" class="btn-sm btn-edit-order-asin" data-order-id="${o.orderId}" data-asin="${o.asin || ""}" data-network="${o.network || ""}" data-topup="${o.topUpValue || ""}" data-title="${encodeURIComponent(o.itemTitle || "")}">✏️ Update ASIN</button>
+            </td>
           </tr>
         `;
       })
@@ -624,12 +659,13 @@ function handleOrderFile(file) {
       orderPreviewRows.innerHTML = parsedOrders.slice(0, 10).map((o) => `
         <tr>
           <td><code>${o.orderId}</code></td>
+          <td>${o.asin ? `<span class="asin-badge">${o.asin}</span>` : '<span class="asin-badge none">-</span>'}</td>
           <td><span class="badge" style="background:#e8f4fd;color:#0b5394;">${o.network}</span></td>
           <td><strong style="color:#146b37;">${o.topUpValue}</strong></td>
           <td><small>${o.itemTitle || o.sku}</small></td>
           <td>${o.status === "cancelled" ? '<span class="badge" style="background:#fee2e2;color:#991b1b;font-weight:700;">Returned / Cancelled</span>' : '<span class="badge available">Active Order</span>'}</td>
         </tr>
-      `).join("") + (parsedOrders.length > 10 ? `<tr><td colspan="5" style="text-align:center;color:var(--muted);font-style:italic;">...and ${parsedOrders.length - 10} more orders ready to import</td></tr>` : "");
+      `).join("") + (parsedOrders.length > 10 ? `<tr><td colspan="6" style="text-align:center;color:var(--muted);font-style:italic;">...and ${parsedOrders.length - 10} more orders ready to import</td></tr>` : "");
     } else {
       orderPreviewContainer.hidden = true;
       orderImportResult.hidden = false;
@@ -672,7 +708,10 @@ function handleOrderFile(file) {
   reader.readAsText(file);
 }
 
-const ASIN_CATALOG = {
+let ASIN_CATALOG = {
+  "B0FN4LXYM7": { network: "THREE", topUp: "£10", title: "Three £10 Topup" },
+  "B0FLZ8Z84T": { network: "EE", topUp: "£10", title: "EE £10 Topup" },
+  "B0FLM3DNMQ": { network: "O2", topUp: "£10", title: "O2 £10 Topup" },
   "B017M2ZZ3A": { network: "O2", topUp: "£15", title: "O2 £15 Big Bundle" },
   "B01M2XS5GL": { network: "EE", topUp: "£15", title: "EE £15 Data Pack" },
   "B0GZKJCQ9R": { network: "EE", topUp: "£15", title: "EE 20GB (£15)" },
@@ -868,6 +907,299 @@ tabs.forEach((tab) => {
     await refreshInventory();
   });
 });
+
+// 5. ASIN Catalog & Code Management Logic
+async function refreshAsinCatalog() {
+  if (!getAdminToken() || !asinsRows) return;
+  try {
+    let asins = {};
+    const res = await fetch("/api/admin/asins", { headers: getAuthHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.ok && data.asins) {
+        asins = data.asins;
+      }
+    } else {
+      // Fallback to static JSON
+      const fallbackRes = await fetch("/asin-catalog.json").catch(() => null);
+      if (fallbackRes && fallbackRes.ok) {
+        asins = await fallbackRes.json();
+      }
+    }
+
+    currentAsinCatalog = asins;
+    ASIN_CATALOG = Object.assign({}, ASIN_CATALOG, asins);
+
+    const list = Object.values(asins);
+    if (list.length === 0) {
+      asinsRows.innerHTML = `
+        <tr>
+          <td colspan="5" style="text-align:center;padding:24px;color:var(--muted);">
+            No ASIN codes registered yet. Add your first product ASIN above.
+          </td>
+        </tr>`;
+    } else {
+      asinsRows.innerHTML = list
+        .sort((a, b) => a.asin.localeCompare(b.asin))
+        .map((a) => `
+          <tr>
+            <td><span class="asin-badge">${a.asin}</span></td>
+            <td><span class="badge" style="background:#e8f4fd;color:#0b5394;">${a.network}</span></td>
+            <td><strong style="color:#146b37;">${a.topUp}</strong></td>
+            <td>${a.title || "-"}</td>
+            <td>
+              <div style="display:flex;gap:6px;">
+                <button type="button" class="btn-sm btn-edit-asin" data-asin="${a.asin}" data-network="${a.network}" data-topup="${a.topUp}" data-title="${encodeURIComponent(a.title || "")}">Edit</button>
+                <button type="button" class="btn-sm btn-danger-sm btn-del-asin" data-asin="${a.asin}">Delete</button>
+              </div>
+            </td>
+          </tr>
+        `)
+        .join("");
+    }
+
+    // Populate modal ASIN select options
+    if (modalAsinSelect) {
+      const currentSelected = modalAsinSelect.value;
+      modalAsinSelect.innerHTML = `<option value="">-- Choose from Catalog --</option>` +
+        list
+          .sort((a, b) => `${a.network} ${a.topUp}`.localeCompare(`${b.network} ${b.topUp}`))
+          .map((a) => `<option value="${a.asin}">${a.asin} - ${a.network} ${a.topUp} (${a.title || "Topup"})</option>`)
+          .join("");
+      modalAsinSelect.value = currentSelected;
+    }
+  } catch (err) {
+    console.error("ASIN catalog refresh error", err);
+  }
+}
+
+if (btnRefreshAsins) {
+  btnRefreshAsins.addEventListener("click", refreshAsinCatalog);
+}
+
+// ASIN Form Submit
+if (asinForm) {
+  asinForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!checkAuth()) return;
+
+    const asin = String(asinCodeInput ? asinCodeInput.value : "").trim().toUpperCase();
+    const network = String(asinNetworkSelect ? asinNetworkSelect.value : "").trim();
+    const topUp = String(asinTopupSelect ? asinTopupSelect.value : "").trim();
+    const title = String(asinTitleInput ? asinTitleInput.value : "").trim();
+
+    if (!asin || !network || !topUp) {
+      if (asinResult) {
+        asinResult.hidden = false;
+        asinResult.className = "result error";
+        asinResult.textContent = "Please provide valid ASIN, Network, and Top-Up value.";
+      }
+      return;
+    }
+
+    if (btnSaveAsin) btnSaveAsin.disabled = true;
+
+    try {
+      const response = await fetch("/api/admin/asins", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ asin, network, topUp, title })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        if (asinResult) {
+          asinResult.hidden = false;
+          asinResult.className = "result error";
+          asinResult.textContent = data.message || "Failed to save ASIN.";
+        }
+        return;
+      }
+
+      if (asinResult) {
+        asinResult.hidden = false;
+        asinResult.className = "result success";
+        asinResult.innerHTML = `✓ <strong>ASIN Registered:</strong> ${asin} mapped to <strong>${network} ${topUp}</strong> (${title || "Topup"}).`;
+      }
+
+      if (asinCodeInput) asinCodeInput.value = "";
+      if (asinTitleInput) asinTitleInput.value = "";
+      await refreshAsinCatalog();
+      await refreshOrders();
+    } catch {
+      if (asinResult) {
+        asinResult.hidden = false;
+        asinResult.className = "result error";
+        asinResult.textContent = "Network error. Please try again.";
+      }
+    } finally {
+      if (btnSaveAsin) btnSaveAsin.disabled = false;
+    }
+  });
+}
+
+// ASIN table click delegation (Edit / Delete)
+if (asinsRows) {
+  asinsRows.addEventListener("click", async (e) => {
+    const editBtn = e.target.closest(".btn-edit-asin");
+    if (editBtn) {
+      const asin = editBtn.dataset.asin;
+      const network = editBtn.dataset.network;
+      const topup = editBtn.dataset.topup;
+      const title = decodeURIComponent(editBtn.dataset.title || "");
+      if (asinCodeInput) asinCodeInput.value = asin;
+      if (asinNetworkSelect) asinNetworkSelect.value = network;
+      if (asinTopupSelect) asinTopupSelect.value = topup;
+      if (asinTitleInput) asinTitleInput.value = title;
+      if (asinForm) {
+        asinForm.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        if (asinCodeInput) asinCodeInput.focus();
+      }
+      return;
+    }
+
+    const delBtn = e.target.closest(".btn-del-asin");
+    if (delBtn) {
+      const asin = delBtn.dataset.asin;
+      if (!confirm(`Are you sure you want to remove ASIN ${asin} from the catalog?`)) return;
+      try {
+        const response = await fetch(`/api/admin/asins?asin=${encodeURIComponent(asin)}`, {
+          method: "DELETE",
+          headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        if (response.ok && data.ok) {
+          await refreshAsinCatalog();
+        } else {
+          alert(data.message || "Could not delete ASIN.");
+        }
+      } catch {
+        alert("Network error deleting ASIN.");
+      }
+    }
+  });
+}
+
+// Orders table click delegation for Update ASIN
+if (ordersRows) {
+  ordersRows.addEventListener("click", (e) => {
+    const editBtn = e.target.closest(".btn-edit-order-asin");
+    if (editBtn) {
+      const orderId = editBtn.dataset.orderId;
+      const asin = editBtn.dataset.asin || "";
+      const network = editBtn.dataset.network || "THREE";
+      const topup = editBtn.dataset.topup || "£10";
+
+      if (modalOrderId) modalOrderId.value = orderId;
+      if (modalOrderIdLabel) modalOrderIdLabel.textContent = orderId;
+      if (modalAsinInput) modalAsinInput.value = asin;
+      if (modalNetwork) modalNetwork.value = network;
+      if (modalTopup) modalTopup.value = topup;
+
+      if (modalAsinSelect) {
+        modalAsinSelect.value = asin;
+      }
+
+      if (modalAsinResult) modalAsinResult.hidden = true;
+      if (modalUpdateAsin) modalUpdateAsin.hidden = false;
+    }
+  });
+}
+
+// Modal ASIN Select change handler
+if (modalAsinSelect) {
+  modalAsinSelect.addEventListener("change", () => {
+    const selected = modalAsinSelect.value;
+    if (selected && currentAsinCatalog[selected]) {
+      const entry = currentAsinCatalog[selected];
+      if (modalAsinInput) modalAsinInput.value = entry.asin;
+      if (modalNetwork) modalNetwork.value = entry.network;
+      if (modalTopup) modalTopup.value = entry.topUp;
+    } else if (!selected) {
+      if (modalAsinInput) modalAsinInput.value = "";
+    }
+  });
+}
+
+// Modal ASIN Input auto-match
+if (modalAsinInput) {
+  modalAsinInput.addEventListener("input", () => {
+    const val = modalAsinInput.value.trim().toUpperCase();
+    if (currentAsinCatalog[val]) {
+      const entry = currentAsinCatalog[val];
+      if (modalAsinSelect) modalAsinSelect.value = val;
+      if (modalNetwork) modalNetwork.value = entry.network;
+      if (modalTopup) modalTopup.value = entry.topUp;
+    }
+  });
+}
+
+// Modal Form submit
+if (formUpdateOrderAsin) {
+  formUpdateOrderAsin.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!checkAuth()) return;
+
+    const orderId = String(modalOrderId ? modalOrderId.value : "").trim();
+    const asin = String(modalAsinInput ? modalAsinInput.value : "").trim().toUpperCase();
+    const network = String(modalNetwork ? modalNetwork.value : "").trim();
+    const topUpValue = String(modalTopup ? modalTopup.value : "").trim();
+
+    if (!orderId) return;
+
+    if (modalAsinSubmit) modalAsinSubmit.disabled = true;
+
+    try {
+      const response = await fetch("/api/admin/orders/update-asin", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ orderId, asin, network, topUpValue })
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        if (modalAsinResult) {
+          modalAsinResult.hidden = false;
+          modalAsinResult.className = "result error";
+          modalAsinResult.textContent = data.message || "Failed to update order ASIN.";
+        }
+        return;
+      }
+
+      if (modalAsinResult) {
+        modalAsinResult.hidden = false;
+        modalAsinResult.className = "result success";
+        modalAsinResult.innerHTML = `✓ <strong>Updated:</strong> Order ${orderId} assigned to ASIN <code>${asin || "None"}</code> (${network} ${topUpValue}).`;
+      }
+
+      await refreshOrders();
+
+      setTimeout(() => {
+        if (modalUpdateAsin) modalUpdateAsin.hidden = true;
+      }, 900);
+    } catch {
+      if (modalAsinResult) {
+        modalAsinResult.hidden = false;
+        modalAsinResult.className = "result error";
+        modalAsinResult.textContent = "Network error updating order.";
+      }
+    } finally {
+      if (modalAsinSubmit) modalAsinSubmit.disabled = false;
+    }
+  });
+}
+
+// Close Modal events
+function closeModal() {
+  if (modalUpdateAsin) modalUpdateAsin.hidden = true;
+}
+
+if (modalAsinClose) modalAsinClose.addEventListener("click", closeModal);
+if (modalAsinCancel) modalAsinCancel.addEventListener("click", closeModal);
+if (modalUpdateAsin) {
+  modalUpdateAsin.addEventListener("click", (e) => {
+    if (e.target === modalUpdateAsin) closeModal();
+  });
+}
 
 refreshAll();
 setInterval(refreshAll, 10000);

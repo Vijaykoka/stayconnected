@@ -2,6 +2,7 @@
 // Connects static assets with edge API functions
 
 import ordersCatalog from "./public/orders-catalog.json";
+import asinCatalog from "./public/asin-catalog.json";
 
 const DEFAULT_CONFIG = {
   networks: [
@@ -108,6 +109,7 @@ async function handleApiRequest(request, env, url) {
       const cat = ordersCatalog[orderId];
       order = {
         order_id: orderId,
+        asin: cat.asin || "",
         network: cat.network,
         top_up_value: cat.topUpValue,
         status: cat.status || "unclaimed"
@@ -120,6 +122,7 @@ async function handleApiRequest(request, env, url) {
         found: true,
         claimed: true,
         orderId,
+        asin: order ? (order.asin || "") : "",
         network: order ? (order.network || order.networkName) : null,
         topUpValue: order ? (order.top_up_value || order.topUpValue) : null,
         message: "This Order ID has already been redeemed for a SIM top-up."
@@ -132,6 +135,7 @@ async function handleApiRequest(request, env, url) {
         found: true,
         cancelled: true,
         orderId,
+        asin: order ? (order.asin || "") : "",
         message: "This Order was returned or cancelled and is not eligible for a top-up."
       });
     }
@@ -145,6 +149,7 @@ async function handleApiRequest(request, env, url) {
       found: true,
       claimed: false,
       orderId: order.order_id || order.orderId,
+      asin: order.asin || "",
       network: order.network,
       topUpValue: order.top_up_value || order.topUpValue,
       itemTitle: order.item_title || order.itemTitle || "",
@@ -427,22 +432,33 @@ async function handleApiRequest(request, env, url) {
     if (env.DB) {
       let added = 0;
       let updated = 0;
+      // Ensure asin column exists in D1
+      await env.DB.prepare("ALTER TABLE amazon_orders ADD COLUMN asin TEXT").run().catch(() => {});
       for (const ord of rawOrders) {
         const orderId = String(ord.orderId || "").trim().toUpperCase();
         if (!/^\d{3}-\d{7}-\d{7}$/.test(orderId)) continue;
+        const asinVal = String(ord.asin || "").trim().toUpperCase();
         const net = String(ord.network || "").trim().toUpperCase();
         const topUp = String(ord.topUpValue || "").trim();
         const statusVal = String(ord.status || "unclaimed").trim();
         const check = await env.DB.prepare("SELECT order_id FROM amazon_orders WHERE order_id = ?").bind(orderId).first();
         if (check) {
           await env.DB.prepare(
-            "UPDATE amazon_orders SET network = ?, top_up_value = ?, item_title = COALESCE(?, item_title), sku = COALESCE(?, sku), status = ? WHERE order_id = ?"
-          ).bind(net, topUp, ord.itemTitle || null, ord.sku || null, statusVal, orderId).run();
+            "UPDATE amazon_orders SET asin = COALESCE(NULLIF(?, ''), asin), network = ?, top_up_value = ?, item_title = COALESCE(?, item_title), sku = COALESCE(?, sku), status = ? WHERE order_id = ?"
+          ).bind(asinVal, net, topUp, ord.itemTitle || null, ord.sku || null, statusVal, orderId).run().catch(async () => {
+            await env.DB.prepare(
+              "UPDATE amazon_orders SET network = ?, top_up_value = ?, item_title = COALESCE(?, item_title), sku = COALESCE(?, sku), status = ? WHERE order_id = ?"
+            ).bind(net, topUp, ord.itemTitle || null, ord.sku || null, statusVal, orderId).run();
+          });
           updated++;
         } else {
           await env.DB.prepare(
-            "INSERT INTO amazon_orders (order_id, network, top_up_value, item_title, sku, item_price, source, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-          ).bind(orderId, net, topUp, ord.itemTitle || null, ord.sku || null, ord.itemPrice || null, ord.source || "csv_upload", statusVal, new Date().toISOString()).run();
+            "INSERT INTO amazon_orders (order_id, asin, network, top_up_value, item_title, sku, item_price, source, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+          ).bind(orderId, asinVal || null, net, topUp, ord.itemTitle || null, ord.sku || null, ord.itemPrice || null, ord.source || "csv_upload", statusVal, new Date().toISOString()).run().catch(async () => {
+            await env.DB.prepare(
+              "INSERT INTO amazon_orders (order_id, network, top_up_value, item_title, sku, item_price, source, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            ).bind(orderId, net, topUp, ord.itemTitle || null, ord.sku || null, ord.itemPrice || null, ord.source || "csv_upload", statusVal, new Date().toISOString()).run();
+          });
           added++;
         }
       }
@@ -460,20 +476,28 @@ async function handleApiRequest(request, env, url) {
     const search = (url.searchParams.get("search") || "").trim().toUpperCase();
     let ordersList = [];
     if (env.DB) {
-      let query = "SELECT order_id AS orderId, network, top_up_value AS topUpValue, item_title AS itemTitle, sku, item_price AS itemPrice, source, status, claimed_iccid AS claimedIccid, claimed_at AS claimedAt, created_at AS createdAt FROM amazon_orders";
+      let query = "SELECT order_id AS orderId, asin, network, top_up_value AS topUpValue, item_title AS itemTitle, sku, item_price AS itemPrice, source, status, claimed_iccid AS claimedIccid, claimed_at AS claimedAt, created_at AS createdAt FROM amazon_orders";
       if (search) {
-        query += " WHERE order_id LIKE ? OR network LIKE ? OR sku LIKE ? ORDER BY created_at DESC LIMIT 200";
+        query += " WHERE order_id LIKE ? OR asin LIKE ? OR network LIKE ? OR sku LIKE ? ORDER BY created_at DESC LIMIT 200";
         const pattern = `%${search}%`;
-        ordersList = (await env.DB.prepare(query).bind(pattern, pattern, pattern).all().catch(() => ({ results: [] }))).results || [];
+        ordersList = (await env.DB.prepare(query).bind(pattern, pattern, pattern, pattern).all().catch(async () => {
+          // Fallback if asin column doesn't exist
+          const fallbackQ = "SELECT order_id AS orderId, '' AS asin, network, top_up_value AS topUpValue, item_title AS itemTitle, sku, item_price AS itemPrice, source, status, claimed_iccid AS claimedIccid, claimed_at AS claimedAt, created_at AS createdAt FROM amazon_orders WHERE order_id LIKE ? OR network LIKE ? OR sku LIKE ? ORDER BY created_at DESC LIMIT 200";
+          return await env.DB.prepare(fallbackQ).bind(pattern, pattern, pattern).all().catch(() => ({ results: [] }));
+        })).results || [];
       } else {
         query += " ORDER BY created_at DESC LIMIT 200";
-        ordersList = (await env.DB.prepare(query).all().catch(() => ({ results: [] }))).results || [];
+        ordersList = (await env.DB.prepare(query).all().catch(async () => {
+          const fallbackQ = "SELECT order_id AS orderId, '' AS asin, network, top_up_value AS topUpValue, item_title AS itemTitle, sku, item_price AS itemPrice, source, status, claimed_iccid AS claimedIccid, claimed_at AS claimedAt, created_at AS createdAt FROM amazon_orders ORDER BY created_at DESC LIMIT 200";
+          return await env.DB.prepare(fallbackQ).all().catch(() => ({ results: [] }));
+        })).results || [];
       }
     }
 
     if ((!ordersList || ordersList.length === 0) && ordersCatalog) {
       ordersList = Object.entries(ordersCatalog).map(([k, v]) => ({
         orderId: k,
+        asin: v.asin || "",
         network: v.network,
         topUpValue: v.topUpValue,
         status: v.status || "unclaimed",
@@ -483,10 +507,113 @@ async function handleApiRequest(request, env, url) {
         source: "sellerboard_report",
         claimedIccid: null,
         createdAt: "2026-10-14T00:00:00Z"
-      })).filter(o => !search || o.orderId.toUpperCase().includes(search) || o.network.toUpperCase().includes(search));
+      })).filter(o => !search || o.orderId.toUpperCase().includes(search) || (o.asin && o.asin.toUpperCase().includes(search)) || o.network.toUpperCase().includes(search));
     }
 
     return jsonResponse({ ok: true, orders: ordersList, total: ordersList.length });
+  }
+
+  // 11b. POST /api/admin/orders/update-asin
+  if (request.method === "POST" && path === "/api/admin/orders/update-asin") {
+    if (!checkAuth(request, env)) {
+      return jsonResponse({ ok: false, message: "Unauthorized. Admin password required." }, 401);
+    }
+    const payload = await request.json().catch(() => ({}));
+    const orderId = String(payload.orderId || "").trim().toUpperCase();
+    const asin = String(payload.asin || "").trim().toUpperCase();
+    let network = String(payload.network || "").trim().toUpperCase();
+    let topUpValue = String(payload.topUpValue || payload.topUp || "").trim();
+    let itemTitle = String(payload.itemTitle || payload.title || "").trim();
+
+    if (!orderId) {
+      return jsonResponse({ ok: false, message: "Order ID is required." }, 400);
+    }
+
+    if (asin && (!network || !topUpValue)) {
+      if (asinCatalog && asinCatalog[asin]) {
+        network = network || asinCatalog[asin].network;
+        topUpValue = topUpValue || asinCatalog[asin].topUp;
+        itemTitle = itemTitle || asinCatalog[asin].title;
+      }
+    }
+
+    if (env.DB) {
+      await env.DB.prepare("ALTER TABLE amazon_orders ADD COLUMN asin TEXT").run().catch(() => {});
+      await env.DB.prepare(
+        "UPDATE amazon_orders SET asin = ?, network = ?, top_up_value = ?, item_title = COALESCE(NULLIF(?, ''), item_title) WHERE order_id = ?"
+      ).bind(asin, network, topUpValue, itemTitle || null, orderId).run().catch(async () => {
+        await env.DB.prepare(
+          "UPDATE amazon_orders SET network = ?, top_up_value = ? WHERE order_id = ?"
+        ).bind(network, topUpValue, orderId).run();
+      });
+    }
+
+    if (ordersCatalog && ordersCatalog[orderId]) {
+      ordersCatalog[orderId].asin = asin;
+      if (network) ordersCatalog[orderId].network = network;
+      if (topUpValue) ordersCatalog[orderId].topUpValue = topUpValue;
+    }
+
+    return jsonResponse({
+      ok: true,
+      message: `Order ${orderId} updated to ASIN ${asin || "None"} (${network || "Auto"} ${topUpValue || ""}).`,
+      order: { orderId, asin, network, topUpValue, itemTitle }
+    });
+  }
+
+  // 11c. GET /api/admin/asins
+  if (request.method === "GET" && path === "/api/admin/asins") {
+    if (!checkAuth(request, env)) {
+      return jsonResponse({ ok: false, message: "Unauthorized. Admin password required." }, 401);
+    }
+    let asinsMap = Object.assign({}, asinCatalog);
+    if (env.DB) {
+      const dbRows = await env.DB.prepare("SELECT asin, network, top_up AS topUp, title FROM asin_catalog").all().catch(() => ({ results: [] }));
+      for (const r of (dbRows.results || [])) {
+        asinsMap[r.asin] = { asin: r.asin, network: r.network, topUp: r.topUp, title: r.title || "" };
+      }
+    }
+    return jsonResponse({ ok: true, asins: asinsMap });
+  }
+
+  // 11d. POST /api/admin/asins
+  if (request.method === "POST" && path === "/api/admin/asins") {
+    if (!checkAuth(request, env)) {
+      return jsonResponse({ ok: false, message: "Unauthorized. Admin password required." }, 401);
+    }
+    const payload = await request.json().catch(() => ({}));
+    const asin = String(payload.asin || "").trim().toUpperCase();
+    const network = String(payload.network || "").trim().toUpperCase();
+    const topUp = String(payload.topUp || payload.topUpValue || "").trim();
+    const title = String(payload.title || payload.itemTitle || "").trim();
+
+    if (!asin || !network || !topUp) {
+      return jsonResponse({ ok: false, message: "ASIN, Network, and Top-Up value are required." }, 400);
+    }
+
+    if (env.DB) {
+      await env.DB.prepare(
+        "CREATE TABLE IF NOT EXISTS asin_catalog (asin TEXT PRIMARY KEY, network TEXT, top_up TEXT, title TEXT, updated_at TEXT)"
+      ).run().catch(() => {});
+      await env.DB.prepare(
+        "INSERT INTO asin_catalog (asin, network, top_up, title, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(asin) DO UPDATE SET network=excluded.network, top_up=excluded.top_up, title=excluded.title, updated_at=excluded.updated_at"
+      ).bind(asin, network, topUp, title, new Date().toISOString()).run().catch(() => {});
+    }
+
+    const entry = { asin, network, topUp, title: title || `${network} ${topUp} Topup` };
+    return jsonResponse({ ok: true, message: `ASIN ${asin} saved successfully.`, entry });
+  }
+
+  // 11e. DELETE /api/admin/asins
+  if (request.method === "DELETE" && path === "/api/admin/asins") {
+    if (!checkAuth(request, env)) {
+      return jsonResponse({ ok: false, message: "Unauthorized. Admin password required." }, 401);
+    }
+    const asin = (url.searchParams.get("asin") || "").trim().toUpperCase();
+    if (env.DB && asin) {
+      await env.DB.prepare("DELETE FROM asin_catalog WHERE asin = ?").bind(asin).run().catch(() => {});
+    }
+    return jsonResponse({ ok: true, message: `ASIN ${asin} removed.` });
   }
 
   // 12. POST /api/webhooks/amazon-email
